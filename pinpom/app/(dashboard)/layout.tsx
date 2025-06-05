@@ -1,4 +1,3 @@
-import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 interface DashboardLayoutProps {
@@ -9,14 +8,9 @@ export default function DashboardLayout(
   { children }: DashboardLayoutProps
 ) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      enableSystem
-      disableTransitionOnChange
-    >
+    <div className="flex flex-col h-screen w-screen">
       {children}
       <Toaster />
-    </ThemeProvider>
+    </div>
   );
 }
