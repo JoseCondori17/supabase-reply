@@ -9,7 +9,7 @@ export function MonacoEditor() {
       <Tabs defaultValue="account" className="w-full">
         <TabsList>
           {files.map((file) => (
-            <TabsTrigger value={file.name}>{file.name}</TabsTrigger>
+            <TabsTrigger key={file.name} value={file.name}>{file.name}</TabsTrigger>
           ))}
         </TabsList>
         <TabsContent value="file1">
