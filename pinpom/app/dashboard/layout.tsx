@@ -17,7 +17,7 @@ export default function DashboardLayout(
       </header>
       <div className='flex h-full'>
         <aside>
-          <Sidebar routes={routes} />
+          <Sidebar routes={routes('orxhacgauokkkcbrgcxw')} />
         </aside>
         <main className='flex-1 flex h-full w-full'>
           {children}
