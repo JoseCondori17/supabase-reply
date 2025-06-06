@@ -1,10 +1,17 @@
+import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/common/navbar";
 import { Sidebar } from "@/components/common/sidebar";
 import { routes } from "@/constants/route";
 
-export default function ProjectOverview() {
+interface DashboardLayoutProps {
+  children: React.ReactNode
+}
+
+export default function DashboardLayout(
+  { children }: DashboardLayoutProps
+) {
   return (
-    <>
+    <div className="flex flex-col h-screen w-screen">
       <header>
         <Navbar />
       </header>
@@ -12,10 +19,11 @@ export default function ProjectOverview() {
         <aside>
           <Sidebar routes={routes} />
         </aside>
-        <main>
-          main
+        <main className='flex-1 flex h-full w-full'>
+          {children}
         </main>
       </div>
-    </>
+      <Toaster />
+    </div>
   );
 }

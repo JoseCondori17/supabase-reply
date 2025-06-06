@@ -1,39 +1,62 @@
-import type { LucideIcon } from 'lucide-react';
-
 export interface Route {
-  path: string;
   label: string;
-  icon: string;
-}
+  path?: string;
+  icon?: string;
+  items?: Route[];
+};
 
-export interface RouteGroup {
-  label: string;
-  routes: Route[];
-}
-
-export const routes: RouteGroup[] = [
+export const routes: Route[] = [
   {
     label: 'General',
-    routes: [
-      { path: '/project', label: 'Project Overview', icon: 'House' },
-      { path: '/table-editor', label: 'Table Editor', icon: 'Table2' },
-      { path: '/sql-editor', label: 'SQL Editor', icon: 'SquareTerminal' },
+    items: [
+      { label: 'Project Overview', path: '/dashboard/project', icon: 'House' },
+      { label: 'Table Editor', path: '/dashboard/table-editor', icon: 'Table2' },
+      { label: 'SQL Editor', path: '/dashboard/sql-editor', icon: 'SquareTerminal' },
     ]
   },
   {
     label: 'Database',
-    routes: [
-      { path: '/database', label: 'Database', icon: 'Database' },
-      { path: '/authentication', label: 'Authentication', icon: 'Fingerprint' },
-      { path: '/storage', label: 'Storage', icon: 'Package2' },
+    items: [
+      { label: 'Database', path: '/dashboard/database', icon: 'Database' },
+      { label: 'Authentication', path: '/dashboard/authentication', icon: 'Fingerprint' },
+      { label: 'Storage', path: '/dashboard/storage', icon: 'Package2' },
     ]
   },
   {
     label: 'Settings',
-    routes: [
-      { path: '/advisors/security', label: 'Security Advisor', icon: 'Wand' },
-      { path: '/reports', label: 'Reports', icon: 'ChartNoAxesCombined' },
-      { path: '/api-docs', label: 'API Docs', icon: 'FileText' },
+    items: [
+      { label: 'Security Advisor', path: '/advisors/security', icon: 'Wand' },
+      { label: 'Reports', path: '/reports', icon: 'ChartNoAxesCombined' },
+      { label: 'API Docs', path: '/api-docs', icon: 'FileText' },
     ]
   }
 ];
+
+export const routes_database: Route[] = [
+  {
+    label: 'Database management',
+    items: [
+      { label: 'Schema Visualizer', path: '/dashboard/database/schema-visualizer' },
+      { label: 'Tables', path: '/dashboard/database/tables' },
+      { label: 'Functions', path: '/dashboard/database/functions' },
+      { label: 'Triggers', path: '/dashboard/database/triggers' },
+      { label: 'Enumerated Types', path: '/dashboard/database/enumerated-types' },
+      { label: 'Indexes', path: '/dashboard/database/indexes' },
+      { label: 'Publications', path: '/dashboard/database/publications' },
+    ]
+  },
+  {
+    label: 'Access control',
+    items: [
+      { label: 'Roles', path: '/dashboard/database/roles' },
+      { label: 'Policies', path: '/dashboard/database/policies' },
+    ]
+  },
+  {
+    label: 'Platform',
+    items: [
+      { label: 'Backups', path: '/dashboard/database/backups' },
+      { label: 'Migrations', path: '/dashboard/database/migrations' },
+    ]
+  }
+]
