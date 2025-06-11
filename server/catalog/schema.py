@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, asdict
 
 from server.catalog.service import BaseService
-from server.catalog.database import DatabaseService, Database
+from server.catalog.database import DatabaseService
 from server.storage.disk.file_manager import FileManager
 from server.storage.disk.path_builder import PathBuilder
 
@@ -70,11 +70,12 @@ class SchemaService(BaseService):
     
     def get_schemas_name(self, db_name: str) -> list[str]:
         database = self.database_service.get_database(db_name)
-        schemas = [schema for schema in database.db_schemas.keys()]
+        schemas = [schema_name for schema_name in database.db_schemas.keys()]
         return schemas
 
-    def _generate_schema_id(self, database: str) -> int:
-        return max(database.get_schemas().values(), default=0) + 1
+    def _generate_schema_id(self, db_name: str) -> int:
+        database = self.database_service.get_database(db_name)
+        return max(database.db_schemas.values(), default=0) + 1
     
     def _update_schema_metadata(self, db_name: str, schema_name: str, schema: Schema) -> None:
         schema_meta_path = self.path_builder.schema_meta(db_name, schema_name)
