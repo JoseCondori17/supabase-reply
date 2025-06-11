@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
 
 from server.catalog.service import BaseService
 from server.catalog.schema import SchemaService, Schema
@@ -23,28 +24,34 @@ class TableService(BaseService):
         super().__init__(file_manager, path_builder)
         self.schema_service = schema_service
     
-    # https://claude.ai/chat/6edafe21-ccfe-4d55-9159-e5f54a7ff729
-    # pending
     def create_table(self, db_name: str, sch_name: str, tab_name: str, columns: list[Column]) -> bool:
         schema = self.schema_service.get_schema(db_name, sch_name)
         if tab_name in schema.sch_tables.keys():
             print(f"Table '{db_name}' already exists")
             return False
         
-        table_path = self._create_table_structure(db_name, sch_name, tab_name)
+        table_paths = self._create_table_structure(db_name, sch_name, tab_name)
         table_id = self._generate_table_id(schema)
+        table_namespace = schema.get_id()
+        table_tuples = 0
+        table_page = 1
+        table_page_size = 8192
         table = Table(
             table_id,
             tab_name,
-            schema.get_id(),
-            0,
-            1,
-            8192,
+            table_namespace,
+            table_tuples,
+            table_page,
+            table_page_size,
             columns,
             []
         )
-        schema.add_table(tab_name, table_id)
+        schema.sch_tables[tab_name] = table_id # add table
         self.schema_service._update_schema_metadata(db_name, sch_name, schema)
+        
+        self.file_manager.write_data(table, table_paths['meta'])
+
+        return True
 
     def get_table(self, db_name: str, sch_name: str, tab_name: str) -> Table:
         table_meta_path = self.path_builder.table_meta(db_name, sch_name, tab_name)
@@ -72,3 +79,16 @@ class TableService(BaseService):
     
     def get_tables_name(self, db_name: str, sch_name: str) -> list[str]:
         return [table.get_tab_name() for table in self.get_tables(db_name, sch_name)]
+    
+    def _create_table_structure(self, db_name: str, schema_name: str, table_name: str) -> dict[str, Path]:
+        paths = {
+            'table': self.path_builder.table_dir(db_name, schema_name, table_name),
+            'data': self.path_builder.table_data(db_name, schema_name, table_name),
+            'meta': self.path_builder.table_meta(db_name, schema_name, table_name)
+        }
+        
+        self._ensure_directory_exists(paths['table'])
+        self.file_manager.create_file(paths['data'])
+        self.file_manager.create_file(paths['meta'])
+        
+        return paths
