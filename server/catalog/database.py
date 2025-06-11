@@ -63,7 +63,8 @@ class DatabaseService(BaseService):
         return databases
     
     def _generate_database_id(self) -> int:
-        return max((db.db_id for db in self.get_databases()), default=0) + 1
+        databases_id = [db.db_id for db in self.get_databases()]
+        return max(databases_id, default=0) + 1
     
     def _update_database_metadata(self, db_name: str, database: Database) -> None:
         db_meta_path = self.path_builder.database_meta(db_name)
