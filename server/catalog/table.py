@@ -65,20 +65,24 @@ class TableService(BaseService):
     def get_tables(self, db_name: str, sch_name: str) -> list[Table]:
         schema = self.schema_service.get_schema(db_name, sch_name)
         tables = []
-        for table_name in schema.get_tables().keys():
+        for table_name in schema.sch_tables.keys():
             tables.append(self.get_table(db_name, sch_name, table_name))
         return tables
     
     def get_tables_json(self, db_name: str, sch_name: str) -> list[dict[Table]]:
         schema = self.schema_service.get_schema(db_name, sch_name)
         tables = []
-        for table_name in schema.get_tables().keys():
+        for table_name in schema.sch_tables.keys():
             table = self.get_table(db_name, sch_name, table_name)
             tables.append(asdict(table))
         return tables
     
     def get_tables_name(self, db_name: str, sch_name: str) -> list[str]:
-        return [table.get_tab_name() for table in self.get_tables(db_name, sch_name)]
+        return [table.tab_name for table in self.get_tables(db_name, sch_name)]
+    
+    def _generate_table_id(self, db_name: str, sch_name: str):
+        schema = self.schema_service.get_schema(db_name, sch_name)
+        return max(schema.sch_tables.values(), default=0) + 1
     
     def _create_table_structure(self, db_name: str, schema_name: str, table_name: str) -> dict[str, Path]:
         paths = {
