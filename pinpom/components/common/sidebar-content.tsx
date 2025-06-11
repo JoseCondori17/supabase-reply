@@ -11,10 +11,10 @@ interface SidebarContentProps {
   items: Route[];
 };
 
-function SidebarContentItem({ label, path }: Route) {
+function SidebarContentItem({ label, url }: Route) {
   return (
     <Link
-      href={path ?? '/dashboard/project'}
+      href={url ?? '/dashboard/project'}
       className={cn(
         buttonVariants({
           variant: 'ghost',
@@ -41,7 +41,7 @@ export function SidebarContent({ title, items }: SidebarContentProps) {
                 <p className="text-[0.8rem] text-muted-foreground uppercase px-3 py-1.5">{item.label}</p>
                 <div>
                   {item.items?.map((subitem) => (
-                    <SidebarContentItem key={subitem.label} label={subitem.label} path={subitem.path} />
+                    <SidebarContentItem key={subitem.label} label={subitem.label} url={subitem.url} />
                   ))}
                 </div>
               </div>

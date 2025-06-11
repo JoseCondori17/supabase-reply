@@ -18,7 +18,7 @@ interface SidebarProps {
   routes: Route[]
 };
 
-function SibebarItem({ icon, label, path }: Route) {
+function SibebarItem({ icon, label, url }: Route) {
   const pathname = usePathname();
 
   const Icon = lucideIcons[icon as keyof typeof lucideIcons] as LucideIcon;
@@ -27,10 +27,10 @@ function SibebarItem({ icon, label, path }: Route) {
       <Tooltip>
         <TooltipTrigger asChild>
           <Link
-            href={path ?? '/dashboard/project'}
+            href={url ?? '/dashboard/project'}
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'icon', className: 'flex items-center h-8 w-8 rounded-sm' }),
-              { 'dark:bg-accent/50 bg-accent': pathname === path }
+              { 'dark:bg-accent/50 bg-accent': pathname === url }
             )}
           >
             <Icon className='size-5 stroke-1' />
