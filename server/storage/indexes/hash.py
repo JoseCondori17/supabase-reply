@@ -1,5 +1,5 @@
 from xxhash import xxh64
-from server.storage.indexes.types.interfaces import Insertable, Deletable, Updatable, Searchable
+from server.interfaces.methods import Insertable, Deletable, Updatable, Searchable
 
 class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
     def __init__(self, idx_filename: str, data_type, key_len: int, bucket_size: int = 10) -> None: ...   
