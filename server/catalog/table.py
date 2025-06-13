@@ -14,8 +14,6 @@ class Table:
     tab_name        : str
     tab_namespace   : int  # schema id
     tab_tuples      : int  # quantity of records
-    tab_pages       : int  # number of pages
-    tab_page_size   : int  # size of page
     tab_columns     : list[Column] = field(default_factory=list)
     tab_indexes     : list[Index] = field(default_factory=list)
 
@@ -34,15 +32,11 @@ class TableService(BaseService):
         table_id = self._generate_table_id(schema)
         table_namespace = schema.get_id()
         table_tuples = 0
-        table_page = 1
-        table_page_size = 8192
         table = Table(
             table_id,
             tab_name,
             table_namespace,
             table_tuples,
-            table_page,
-            table_page_size,
             columns,
             []
         )
