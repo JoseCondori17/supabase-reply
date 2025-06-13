@@ -1,2 +1,2 @@
 xxhash
-sqlglot
+sqlglot[rs]
