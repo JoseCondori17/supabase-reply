@@ -1,8 +1,8 @@
 from abc import ABC
 from pathlib import Path
 
-from storage.disk.path_builder import PathBuilder
-from storage.disk.file_manager import FileManager
+from server.storage.disk.path_builder import PathBuilder
+from server.storage.disk.file_manager import FileManager
 
 class BaseService(ABC):
     def __init__(self, file_manager: FileManager, path_builder: PathBuilder):
