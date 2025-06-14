@@ -1,11 +1,15 @@
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
 
 from server.catalog.service import BaseService
-from server.catalog.catalog import CatalogService
 from server.storage.disk.file_manager import FileManager
 from server.storage.disk.path_builder import PathBuilder
 
+if TYPE_CHECKING:
+    from server.catalog.catalog import CatalogService
+    
 @dataclass
 class Database:
     db_id           : int
@@ -14,7 +18,7 @@ class Database:
     db_created_at   : datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 class DatabaseService(BaseService):
-    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, catalog_service: CatalogService):
+    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, catalog_service: 'CatalogService'):
         super().__init__(file_manager, path_builder)
         self.catalog_service = catalog_service
 
@@ -27,7 +31,7 @@ class DatabaseService(BaseService):
         db_path = self.path_builder.database_dir(db_name)
         db_meta_path = self.path_builder.database_meta(db_name)
 
-        self.file_manager.create_directory(db_path)
+        self.file_manager.create_dir(db_path)
         self.file_manager.create_file(db_meta_path)
 
         db_id = self._generate_database_id()

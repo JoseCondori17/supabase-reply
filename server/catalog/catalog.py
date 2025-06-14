@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,11 +17,12 @@ class CatalogService(BaseService):
     def __init__(self, file_manager: FileManager, path_builder: PathBuilder, data_directory: Path):
         super().__init__(file_manager, path_builder)
         self.data_directory = data_directory
+        self.system_catalog_path = data_directory / Path("system/catalog.dat")
         self.catalog = self.initialize_catalog()
 
     def initialize_catalog(self) -> Catalog:
         self.catalog = Catalog()
-        if self.file_manager.path_exists(Path("system/catalog.dat")):
+        if self.file_manager.path_exists(self.system_catalog_path):
             self.load_catalog()
         else:
             self.save_catalog()

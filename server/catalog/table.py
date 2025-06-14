@@ -1,12 +1,16 @@
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from server.catalog.service import BaseService
-from server.catalog.schema import SchemaService, Schema
 from server.storage.disk.file_manager import FileManager
 from server.storage.disk.path_builder import PathBuilder
-from catalog.column import Column
-from catalog.index import Index
+from server.catalog.column import Column
+from server.catalog.index import Index
+
+if TYPE_CHECKING:
+    from server.catalog.schema import SchemaService
+    
 
 @dataclass
 class Table:
@@ -18,7 +22,7 @@ class Table:
     tab_indexes     : list[Index] = field(default_factory=list)
 
 class TableService(BaseService):
-    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, schema_service: SchemaService):
+    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, schema_service: 'SchemaService'):
         super().__init__(file_manager, path_builder)
         self.schema_service = schema_service
     
@@ -86,7 +90,7 @@ class TableService(BaseService):
         }
         
         self._ensure_directory_exists(paths['table'])
-        self.file_manager.create_file(paths['data'])
-        self.file_manager.create_file(paths['meta'])
+        self._ensure_file_exists(paths['data'])
+        self._ensure_file_exists(paths['meta'])
         
         return paths

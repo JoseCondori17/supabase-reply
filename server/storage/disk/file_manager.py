@@ -8,7 +8,9 @@ class FileManager:
     base_path: Path
 
     def create_file(self, path: Path) -> None:
-        with open(path, 'w') as f: pass
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'wb+') as f:
+            pass
 
     def create_dir(self, path: Path) -> None:
         os.makedirs(path, exist_ok=True)

@@ -11,7 +11,7 @@ class BaseService(ABC):
 
     def _ensure_directory_exists(self, path: Path) -> None:
         if not self.file_manager.path_exists(path):
-            self.file_manager.create_directory(path)
+            self.file_manager.create_dir(path)
     
     def _ensure_file_exists(self, path: Path) -> None:
         if not self.file_manager.path_exists(path):

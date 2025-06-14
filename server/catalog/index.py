@@ -1,10 +1,14 @@
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from server.catalog.service import BaseService
-from server.catalog.table import TableService
 from server.storage.disk.file_manager import FileManager
 from server.storage.disk.path_builder import PathBuilder
+
+if TYPE_CHECKING:
+    from server.catalog.table import TableService
+    
 
 @dataclass
 class Index:
@@ -16,8 +20,8 @@ class Index:
     idx_columns     : list[int]  # column positions
     idx_is_primary  : bool
     
-class IndexService(TableService):
-    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, table_service: TableService):
+class IndexService(BaseService):
+    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, table_service: 'TableService'):
         super().__init__(file_manager, path_builder)
         self.table_service = table_service
     

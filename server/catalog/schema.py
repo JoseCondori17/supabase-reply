@@ -18,7 +18,7 @@ class SchemaService(BaseService):
         super().__init__(file_manager, path_builder)
         self.database_service = database_service
 
-    def create_schema(self, db_name: str, sch_name: str) -> bool: 
+    def create_schema(self, db_name: str, sch_name: str) -> bool:
         database = self.database_service.get_database(db_name)
         if sch_name in database.db_schemas.keys():
             print(f"Schema '{sch_name}' already exists")
@@ -28,12 +28,12 @@ class SchemaService(BaseService):
         schema_meta_path = self.path_builder.schema_meta(db_name, sch_name)
         
         self._ensure_directory_exists(schema_path)
-        self.file_manager.create_file(schema_meta_path)
+        self._ensure_file_exists(schema_meta_path)
 
         schema_id = self._generate_schema_id(database)
         schema = Schema(schema_id, sch_name, database.db_id)
 
-        database.add_schema(sch_name, schema_id)
+        database.db_schemas[sch_name] = schema_id
         self.database_service._update_database_metadata(db_name, database)
 
         self.file_manager.write_data(schema, schema_meta_path)
