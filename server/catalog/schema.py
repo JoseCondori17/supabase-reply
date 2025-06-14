@@ -1,9 +1,12 @@
 from dataclasses import dataclass, field, asdict
+from typing import TYPE_CHECKING
 
 from server.catalog.service import BaseService
-from server.catalog.database import DatabaseService
 from server.storage.disk.file_manager import FileManager
 from server.storage.disk.path_builder import PathBuilder
+
+if TYPE_CHECKING:
+    from server.catalog.database import DatabaseService
 
 @dataclass
 class Schema:
@@ -14,7 +17,7 @@ class Schema:
     sch_functions   : dict[str, int] = field(default_factory=dict)
 
 class SchemaService(BaseService):
-    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, database_service: DatabaseService):
+    def __init__(self, file_manager: FileManager, path_builder: PathBuilder, database_service: 'DatabaseService'):
         super().__init__(file_manager, path_builder)
         self.database_service = database_service
 
@@ -30,9 +33,8 @@ class SchemaService(BaseService):
         self._ensure_directory_exists(schema_path)
         self._ensure_file_exists(schema_meta_path)
 
-        schema_id = self._generate_schema_id(database)
+        schema_id = self._generate_schema_id(database.db_name)
         schema = Schema(schema_id, sch_name, database.db_id)
-
         database.db_schemas[sch_name] = schema_id
         self.database_service._update_database_metadata(db_name, database)
 

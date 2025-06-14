@@ -1,26 +1,23 @@
 'use client'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { files } from "@/constants/data";
 import Editor from '@monaco-editor/react';
 
 export function MonacoEditor() {
   return (
-    <>
-      <Tabs defaultValue="account" className="w-full">
-        <TabsList>
-          {files.map((file) => (
-            <TabsTrigger key={file.name} value={file.name}>{file.name}</TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent value="file1">
-          gola
-        </TabsContent>
-      </Tabs>
+    <div className="h-full w-full overflow-hidden">
       <Editor
-        height='100%'
         defaultLanguage='pgsql'
         defaultValue="-- write your script"
+        options={{
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          wordWrap: 'on',
+          lineNumbers: 'on',
+          folding: true,
+          fontSize: 14,
+        }}
+        className="h-full w-full"
       />
-    </>
+    </div>
   );
 }

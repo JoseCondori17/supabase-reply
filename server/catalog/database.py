@@ -43,7 +43,7 @@ class DatabaseService(BaseService):
 
     def get_database(self, db_name: str) -> Database | None:
         catalog = self.catalog_service.catalog
-        database = catalog.databases.get(db_name)
+        database = catalog.databases[db_name]
         return database
 
     def get_database_json(self, db_name: str) -> dict[Database]:
@@ -73,3 +73,17 @@ class DatabaseService(BaseService):
     def _update_database_metadata(self, db_name: str, database: Database) -> None:
         db_meta_path = self.path_builder.database_meta(db_name)
         self.file_manager.write_data(database, db_meta_path)
+
+    def delete_database(self, db_name: str) -> bool:
+        catalog = self.catalog_service.catalog
+        if db_name not in catalog.databases:
+            print(f"Database '{db_name}' does not exist")
+            return False
+        
+        db_path = self.path_builder.database_dir(db_name)
+        self.file_manager.delete_dir(db_path)
+        
+        del catalog.databases[db_name]
+        self.catalog_service.save_catalog()
+        
+        return True
