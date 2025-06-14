@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.v1.endpoints import database, table, schema
+from server.api.v1.endpoints import database, table, schema, search
 
 app = FastAPI(
     title="Pinpom API",
@@ -19,6 +19,7 @@ app.add_middleware(
 app.include_router(database.router, prefix="/database", tags=["database"])
 app.include_router(table.router, prefix="/table", tags=["table"])
 app.include_router(schema.router, prefix="/schema", tags=["schema"])
+app.include_router(search.router, prefix="/search", tags=["search"])
 
 if __name__ == '__main__':
     uvicorn.run(
