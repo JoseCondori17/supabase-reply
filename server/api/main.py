@@ -1,11 +1,23 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.v1.endpoints import database, table, schema
+from contextlib import asynccontextmanager
+
+from server.api.dependencies import admin_instance
+from server.api.v1.endpoints import database, table, schema
+
+# init instance
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from server.engine.executor import PinPom
+    global admin_instance
+    admin_instance = PinPom()
+    yield
 
 app = FastAPI(
     title="Pinpom API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(

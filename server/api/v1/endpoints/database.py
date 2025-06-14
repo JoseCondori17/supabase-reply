@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
+from server.api.v1.dependencies import DatabaseServiceDep
 
 router = APIRouter()
 

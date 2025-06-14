@@ -1,13 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Code, HelpCircleIcon, InboxIcon } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 
 export function Navbar() {
   return (

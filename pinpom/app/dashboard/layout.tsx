@@ -1,6 +1,6 @@
-import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/common/navbar";
 import { Sidebar } from "@/components/common/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import { routes } from "@/constants/route";
 
 interface DashboardLayoutProps {
@@ -19,7 +19,7 @@ export default function DashboardLayout(
         <aside>
           <Sidebar routes={routes('orxhacgauokkkcbrgcxw')} />
         </aside>
-        <main className='flex-1 flex h-full w-full'>
+        <main className='flex-1 flex h-full min-w-0 overflow-hidden'>
           {children}
         </main>
       </div>

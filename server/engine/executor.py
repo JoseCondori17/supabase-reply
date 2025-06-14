@@ -23,8 +23,8 @@ class PinPom:
         self.database_service = DatabaseService(self.file_manager, self.path_builder, self.catalog_service)
         self.schema_service = SchemaService(self.file_manager, self.path_builder, self.database_service)
         self.table_service = TableService(self.file_manager, self.path_builder, self.schema_service)
-        self.database = "ppsql"
-        self.schema = "public"
+        self.database_global: str = "ppsql"
+        self.schema_global: str = "public"
 
     def execute(self, sql: str) -> None:
         exprs = self.sql_parser.parse(sql)
@@ -65,31 +65,28 @@ class PinPom:
         if expr.kind == "TABLE":
             parser = self.sql_parser._parse_create_table(expr)
             self.table_service.create_table(
-                db_name=self.database,
-                sch_name=self.schema,
+                db_name=self.database_global,
+                sch_name=self.schema_global,
                 tab_name=parser['name'],
                 columns=parser['columns']
             )
-            print("here tab")
             return
-        elif expr.kind == "DATABASE":
+        if expr.kind == "DATABASE":
             parser = self.sql_parser._parse_create_database(expr)
             db_name = parser['name']
             self.database_service.create_database(db_name)
-            self.database = db_name
-            print("here db")
+            self.database_global = db_name
             return
-        elif expr.kind == "SCHEMA":
+        if expr.kind == "SCHEMA":
             parser = self.sql_parser._parse_create_schema(expr)
             sch_name = parser['name']
             self.schema_service.create_schema(
-                db_name=self.database,
+                db_name=self.database_global,
                 sch_name=sch_name
             )
-            self.schema = sch_name
-            print("here schema")
+            self.schema_global = sch_name
             return
-        elif expr.kind == "INDEX":
+        if expr.kind == "INDEX":
             parser = self.sql_parser._parse_create_index(expr)
             return
     def select_op(self, expr: Expression):

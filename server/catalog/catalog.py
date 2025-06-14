@@ -9,7 +9,7 @@ from server.storage.disk.path_builder import PathBuilder
 
 @dataclass
 class Catalog:
-    databases: dict[str, Database] = field(default_factory=dict)
+    databases: dict[str, Database] = field(default_factory=dict[str, Database])
     version: str = field(default="0.0.1")
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -18,18 +18,17 @@ class CatalogService(BaseService):
         super().__init__(file_manager, path_builder)
         self.data_directory = data_directory
         self.system_catalog_path = data_directory / Path("system/catalog.dat")
-        self.catalog = self.initialize_catalog()
-
-    def initialize_catalog(self) -> Catalog:
         self.catalog = Catalog()
+        self.initialize_catalog()
+
+    def initialize_catalog(self) -> None:
         if self.file_manager.path_exists(self.system_catalog_path):
             self.load_catalog()
         else:
             self.save_catalog()
-        return self.catalog
 
     def load_catalog(self) -> Catalog:
-        self.catalog = self.file_manager.read_data(self.system_catalog_path)
+        self.catalog: Catalog = self.file_manager.read_data(self.system_catalog_path)
         return self.catalog
     
     def save_catalog(self) -> None:
@@ -45,4 +44,5 @@ class CatalogService(BaseService):
     def get_created_at(self) -> datetime:
         return self.catalog.created_at
     
-    
+    def get_databases(self) -> dict[str, Database]:
+        return self.catalog.databases

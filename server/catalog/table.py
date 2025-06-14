@@ -10,7 +10,6 @@ from server.catalog.index import Index
 
 if TYPE_CHECKING:
     from server.catalog.schema import SchemaService
-    
 
 @dataclass
 class Table:
@@ -33,8 +32,8 @@ class TableService(BaseService):
             return False
         
         table_paths = self._create_table_structure(db_name, sch_name, tab_name)
-        table_id = self._generate_table_id(schema)
-        table_namespace = schema.get_id()
+        table_id = self._generate_table_id(db_name, sch_name)
+        table_namespace = schema.sch_id
         table_tuples = 0
         table = Table(
             table_id,
