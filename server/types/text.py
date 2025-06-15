@@ -24,6 +24,7 @@ def preprocess(text: str) -> list[str]:
     tokens = [_stemmer.stem(t) for t in tokens]
     return tokens
 
+#print(preprocess("Hi everyone, my name is Rodri and I from Peru"))
 
 class StringType(DataType[str]):
     def compare(self, other: 'StringType') -> int:
