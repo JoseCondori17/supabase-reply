@@ -1,5 +1,31 @@
 from server.types.base import DataType
 
+
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+import string
+
+# Descargar recursos la primera vez
+nltk.download('punkt')
+nltk.download('stopwords')
+
+# Recursos globales
+_stop_words = set(stopwords.words('english'))
+_stemmer = PorterStemmer()
+
+def preprocess(text: str) -> list[str]:
+    """
+    Tokeniza, filtra stopwords, elimina signos y aplica stemming.
+    """
+    tokens = nltk.word_tokenize(text.lower())
+    tokens = [t for t in tokens if t not in string.punctuation]
+    tokens = [t for t in tokens if t not in _stop_words]
+    tokens = [_stemmer.stem(t) for t in tokens]
+    return tokens
+
+#print(preprocess("Hi everyone, my name is Rodri and I from Peru"))
+
 class StringType(DataType[str]):
     def compare(self, other: 'StringType') -> int:
         if self.value < other.value:
