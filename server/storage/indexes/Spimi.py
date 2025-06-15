@@ -42,6 +42,9 @@ class BlockSpimi:
     def is_empty(self):
         return len(self.posting_list)
 
+    def ConcatenatePostingList(self, token, posting_list):
+        self.posting_list[token].ConcatenateLinkedList(posting_list)
+
 
 class LinkedPostingList:
 
@@ -126,6 +129,17 @@ class LinkedPostingList:
     def CanExtract(self):
         return self.actual_pos_extract < self.get_all_size()
 
+    def ConcatenateLinkedList(self, LinkedList):
+        if not self.ListPostingList:
+            self.ListPostingList = [block[:] for block in LinkedList]
+            return
+
+        for block in LinkedList:
+            for doc_id in block:
+                if self.is_full():
+                    self.ListPostingList.append([])
+                self.ListPostingList[-1].append(doc_id)
+
 
 class SpimiIndex:
 
@@ -142,7 +156,9 @@ class SpimiIndex:
         # cuando se lleno un bloque.
         self.idx = 0
 
-    def MakeSpimi(self):
+        self.BuildSpimi()
+
+    def BuildSpimi(self):
 
         n = 0
 
@@ -156,7 +172,7 @@ class SpimiIndex:
 
             Block = BlockSpimi(self.tam_block, self.tam_posting_list)
 
-            while not Block.is_full() or n < len(self.DocList):
+            while not Block.is_full() and n < len(self.DocList):
 
                 if not is_full_block_but_not_posting_list:
                     token_stream = preprocess(self.DocList[n])
@@ -193,7 +209,7 @@ class SpimiIndex:
 
     def BuildBlock(self, Block: BlockSpimi, token_and_docId):
 
-        while not Block.is_full() or self.idx < len(token_and_docId):
+        while not Block.is_full() and self.idx < len(token_and_docId):
 
             token = token_and_docId[self.idx][0]
             docId = token_and_docId[self.idx][1]
@@ -206,7 +222,7 @@ class SpimiIndex:
             if posting_list.is_full():
                 posting_list.add_posting_linked()
 
-            #posting_list.insert_docId(docId)
+            # posting_list.insert_docId(docId)
 
             # Para que se llene el size del bloque, igualmente hará las operaciones de los
             # postings del token.
@@ -230,9 +246,7 @@ class SpimiIndex:
 
         G1size = 0
         G2size = 0
-        Gord = 0
 
-        #n = len(G1) + len(G2)
         GMerge = []
 
         block_merge = BlockSpimi(self.tam_block, self.tam_posting_list)
@@ -257,44 +271,41 @@ class SpimiIndex:
             while idx1 < len(tokens_g1) and idx2 < len(tokens_g2):
                 if tokens_g1[idx1] > tokens_g2[idx2]:
 
-                    ActuallyExtact = pl_g2[tokens_g2[idx2]].num_extract_actually()
-                    SizeLinkedList = pl_g2[tokens_g2[idx2]].get_all_size()
-                    EspacioSobrante = self.tam_block - tam_block_merge
+                    token = tokens_g2[idx2]
+                    linked = pl_g2[token]
 
-                    num_extract = min(SizeLinkedList - ActuallyExtact, EspacioSobrante)
+                    actually_extract = linked.num_extract_actually()
+                    size = linked.get_all_size()
+                    espacio = self.tam_block - tam_block_merge
+                    num_extract = min(size - actually_extract, espacio)
 
                     tam_block_merge += num_extract
+                    docs = linked.Extract_Posting_List_By_Index(num_extract)
+                    new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs)
+                    block_merge.ConcatenatePostingList(token, new_linked)
 
-                    ListDocIdExtract = pl_g2[tokens_g2[idx2]].Extract_Posting_List_By_Index(num_extract)
-
-                    LinkedListExtract = LinkedPostingList(tokens_g2[idx2],
-                                        tam_posting_list=self.tam_posting_list, ListPointListInit=ListDocIdExtract)
-
-                    block_merge.UpdateLinkedList(tokens_g2[idx2], LinkedListExtract)
-
-                    if not pl_g2[tokens_g2[idx2]].CanExtract():
+                    if not linked.CanExtract():
                         idx2 += 1
+
                 elif tokens_g1[idx1] < tokens_g2[idx2]:
 
-                    ActuallyExtact = pl_g1[tokens_g1[idx1]].num_extract_actually()
-                    SizeLinkedList = pl_g1[tokens_g2[idx1]].get_all_size()
-                    EspacioSobrante = self.tam_block - tam_block_merge
+                    token = tokens_g1[idx1]
+                    linked = pl_g1[token]
 
-                    num_extract = min(SizeLinkedList - ActuallyExtact, EspacioSobrante)
+                    actually_extract = linked.num_extract_actually()
+                    size = linked.get_all_size()
+                    espacio = self.tam_block - tam_block_merge
+                    num_extract = min(size - actually_extract, espacio)
 
                     tam_block_merge += num_extract
+                    docs = linked.Extract_Posting_List_By_Index(num_extract)
+                    new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs)
+                    block_merge.ConcatenatePostingList(token, new_linked)
 
-                    ListDocIdExtract = pl_g2[tokens_g1[idx1]].Extract_Posting_List_By_Index(num_extract)
-
-                    LinkedListExtract = LinkedPostingList(tokens_g1[idx1],
-                                                          tam_posting_list=self.tam_posting_list,
-                                                          ListPointListInit=ListDocIdExtract)
-
-                    block_merge.UpdateLinkedList(tokens_g1[idx1], LinkedListExtract)
-
-                    if not pl_g1[tokens_g1[idx1]].CanExtract():
+                    if not linked.CanExtract():
                         idx1 += 1
 
+                # Caso esquina, si son iguales pues evitamos que se sobre escriba la solución anterior.
                 else:
 
                     # Token compartido en ambos
@@ -305,26 +316,32 @@ class SpimiIndex:
                     actually_extract_1 = linked1.num_extract_actually()
                     actually_extract_2 = linked2.num_extract_actually()
                     size_total = linked1.get_all_size() + linked2.get_all_size()
+
                     espacio = self.tam_block - tam_block_merge
-                    num_extract = min(size_total - (actually_extract_1 + actually_extract_2), espacio)
+
+                    min_extract = min(actually_extract_1, actually_extract_2)
+                    num_extract = min(size_total - min_extract, espacio)
 
                     tam_block_merge += num_extract
 
-                    docs1 = linked1.Extract_Posting_List_By_Index(
-                        min(num_extract, linked1.get_all_size() - actually_extract_1))
-                    docs2 = linked2.Extract_Posting_List_By_Index(max(0, num_extract - len(docs1)))
+                    if min_extract == actually_extract_1:
 
-                    merged_docs = docs1 + docs2
-                    new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=merged_docs)
-                    block_merge.UpdateLinkedList(token, new_linked)
+                        docs1 = linked1.Extract_Posting_List_By_Index(num_extract)
+                        new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs1)
+                        block_merge.ConcatenatePostingList(token, new_linked)
 
-                    if not linked1.CanExtract():
+                    else:
+
+                        docs2 = linked2.Extract_Posting_List_By_Index(num_extract)
+                        new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs2)
+                        block_merge.ConcatenatePostingList(token, new_linked)
+
+                    if min_extract == actually_extract_1 and not linked1.CanExtract():
                         idx1 += 1
-                    if not linked2.CanExtract():
+                    if min_extract == actually_extract_2 and not linked2.CanExtract():
                         idx2 += 1
 
                 if tam_block_merge == self.tam_block:
-
                     tam_block_merge = 0
                     GMerge.append(block_merge)
                     block_merge = BlockSpimi(self.tam_block, self.tam_posting_list)
@@ -344,10 +361,7 @@ class SpimiIndex:
         for i in range(G2size, len(G2)):
             GMerge.append(G2[i])
 
-
         return GMerge
-
-
 
     def MergeBlocksSpimi(self, nivel=1):
 
@@ -361,7 +375,8 @@ class SpimiIndex:
 
             GMerge = self.MergeBlocks(G1, G2)
 
-            self.ListBlock[i: i + len(G1) + len(G2)] = GMerge
+            # Puede que este mal esto...
+            self.ListBlock[i: i + len(G1) + len(G2)] = GMerge[:]
 
         if groups * 2 < n:
             self.MergeBlocksSpimi(nivel + 1)
