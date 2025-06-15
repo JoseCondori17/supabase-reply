@@ -367,9 +367,10 @@ class SpimiIndex:
 
         groups = pow(2, nivel)
         n = len(self.ListBlock)
+        mid = groups // 2
 
         for i in range(0, n, groups):
-            mid = groups // 2
+
             G1 = self.ListBlock[i: i + mid]
             G2 = self.ListBlock[i + mid: min(i + groups, n)]
 
