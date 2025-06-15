@@ -8,11 +8,32 @@ create_query = """
     CREATE DATABASE university;
     CREATE SCHEMA course;
     CREATE TABLE users (
-        UUID INT PRIMARY KEY NOT NULL,
+        id UUID PRIMARY KEY NOT NULL,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(255) UNIQUE,
         created_at TIMESTAMP
     );
+
+    CREATE TABLE book (
+        id UUID PRIMARY KEY NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        code VARCHAR(255) UNIQUE,
+        created_at TIMESTAMP
+    );
+
+    CREATE TABLE author (
+        id UUID PRIMARY KEY NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        year DATE UNIQUE,
+        created_at TIMESTAMP
+    );
+
+    CREATE SCHEMA employee;
+    CREATE SCHEMA teach;
+
+    CREATE DATABASE ecommerce;
+    CREATE SCHEMA policia;
+    CREATE SCHEMA municipio;
     """
     
 drop_table = "DROP TABLE product"
@@ -26,4 +47,8 @@ delete_from = "DELETE FROM users WHERE age < 21;"
 #s.parse(select_from)
 
 dbms = PinPom()
+#c = dbms.catalog_service.load_catalog()
+#print(c)
 dbms.execute(create_query)
+#print(dbms.database_service.get_databases_name())
+#print(dbms.catalog_service.get_databases())

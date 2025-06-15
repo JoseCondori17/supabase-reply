@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from server.api.v1.dependencies import DatabaseServiceDep
 
 router = APIRouter()
@@ -18,22 +18,50 @@ async def create_database():
     pass
 
 @router.get("/", status_code=200)
-async def get_all_databases():
+async def get_all_databases(db_service: DatabaseServiceDep):
+    try:
+        databases = db_service.get_databases_json()
+        return {
+            "success": True,
+            "data": databases
+        }
+    except Exception as e:
+        error_msg = f"Error obtaining databases: {str(e)}"
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "error": error_msg
+            }
+        )
+
+@router.get("/{database_name}", status_code=200)
+async def get_database_by_name(db_service: DatabaseServiceDep, database_name: str):
+    try:
+        databases = db_service.get_database_json(database_name)
+        return {
+            "success": True,
+            "data": databases
+        }
+    except Exception as e:
+        error_msg = f"Error obtaining database {database_name}: {str(e)}"
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "error": error_msg
+            }
+        )
+
+@router.put("/{database_name}", status_code=200)
+async def replace_database(db_service: DatabaseServiceDep, database_name: str):
     pass
 
-@router.get("/{database_id}", status_code=200)
-async def get_database_by_id(database_id: str):
+@router.patch("/{database_name}", status_code=200)
+async def update_database_partially(db_service: DatabaseServiceDep, database_name: str):
     pass
 
-@router.put("/{database_id}", status_code=200)
-async def replace_database(database_id: str):
-    pass
-
-@router.patch("/{database_id}", status_code=200)
-async def update_database_partially(database_id: str):
-    pass
-
-@router.delete("/{database_id}", status_code=204)
-async def delete_database(database_id: str):
+@router.delete("/{database_name}", status_code=204)
+async def delete_database(db_service: DatabaseServiceDep, database_name: str):
     pass
 

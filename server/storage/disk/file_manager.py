@@ -21,12 +21,12 @@ class FileManager:
     def delete_dir(self, path: Path) -> None:
         os.rmdir(path)
 
+    # review fun: self.base_path / path or not
     def path_exists(self, path: Path) -> bool:
-        full_path = self.base_path / path
-        return full_path.exists()
+        return path.exists()
 
     def open_file(self, path: Path, read_only: bool):
-        mode = 'rb' if read_only else 'w+b'
+        mode = 'rb' if read_only else 'wb'
         return open(path, mode)
 
     def read_data(self, path: Path) -> any:

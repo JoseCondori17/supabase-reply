@@ -31,11 +31,11 @@ app.add_middleware(
 app.include_router(database.router, prefix="/database", tags=["database"])
 app.include_router(table.router, prefix="/table", tags=["table"])
 app.include_router(schema.router, prefix="/schema", tags=["schema"])
+app.include_router(schema.router, prefix="/query", tags=["query"])
 
 if __name__ == '__main__':
     uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
+        "server.api.main:app",
         port=8000,
         reload=True
     )
