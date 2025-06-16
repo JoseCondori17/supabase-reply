@@ -161,6 +161,13 @@ class SQLParser:
                 'value': where_exp.find(Literal).to_py()
             }
             return condition
+        elif isinstance(where_exp, MatchAgainst):
+            # review this
+            return {
+                'type': "MATCHAGAINST",
+                'column': where_exp.find(Identifier).this,
+                'value': where_exp.find(Identifier).this
+            }
         return None
 
     
