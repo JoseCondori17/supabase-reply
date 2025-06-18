@@ -20,11 +20,21 @@ class DataType(Generic[T], ABC):
     def serialize(self) -> dict: pass
     
     @abstractmethod
-    def type_format(self, size: int | None = None) -> str: pass
+    def serialize_to_bytes(self) -> bytes: pass
+
+    @abstractmethod
+    def type_size(self) -> int: pass
+    
+    @abstractmethod
+    def type_format(self) -> str: pass
     
     @classmethod
     @abstractmethod
     def deserialize(cls, data: dict) -> 'DataType[T]': pass
+
+    @classmethod
+    @abstractmethod
+    def deserialize_from_bytes(cls, data: bytes) -> 'DataType[T]': pass
     
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):

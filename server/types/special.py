@@ -1,4 +1,5 @@
 import uuid
+import struct
 from server.types.base import DataType
 
 class UUIDType(DataType[uuid.UUID]):
@@ -15,7 +16,14 @@ class UUIDType(DataType[uuid.UUID]):
             'value': str(self.value)
         }
     
-    def type_format(self, size: int | None = None) -> str:
+    def serialize_to_bytes(self) -> bytes:
+        format_str = self.type_format()
+        return struct.pack(format_str, str(self.value).encode('utf-8'))
+
+    def type_size(self) -> int:
+        return 36
+
+    def type_format(self) -> str:
         # UUID string length (8-4-4-4-12 format)
         # ref: https://feasiblecommerce.com/index.php/home/blog/blog-uuid
         return '36s'
@@ -23,6 +31,13 @@ class UUIDType(DataType[uuid.UUID]):
     @classmethod
     def deserialize(cls, data: dict) -> 'UUIDType':
         return cls(uuid.UUID(data['value']))
+    
+    @classmethod
+    def deserialize_from_bytes(cls, data: bytes) -> DataType:
+        if len(data) != 36:
+            raise ValueError("Invalid data size for UUIDType")
+        value = struct.unpack('36s', data)[0].decode('utf-8').strip()
+        return cls(uuid.UUID(value))
 
 class BooleanType(DataType[bool]):
     def compare(self, other: 'BooleanType') -> int:
@@ -36,9 +51,23 @@ class BooleanType(DataType[bool]):
             'value': self.value
         }
     
-    def type_format(self, size: int | None = None) -> str:
+    def serialize_to_bytes(self) -> bytes:
+        format_str = self.type_format()
+        return struct.pack(format_str, self.value)
+    
+    def type_size(self) -> int:
+        return 1
+
+    def type_format(self) -> str:
         return '?'
     
     @classmethod
     def deserialize(cls, data: dict) -> 'BooleanType':
         return cls(bool(data['value'])) 
+    
+    @classmethod
+    def deserialize_from_bytes(cls, data: bytes) -> DataType:
+        if len(data) != 1:
+            raise ValueError("Invalid data size for BooleanType")
+        value = struct.unpack('?', data)[0]
+        return cls(value)
