@@ -50,7 +50,8 @@ query_aud = """
     WHERE lyric @@ 'amor en tiempos de guerra'
     LIMIT 10;
 """
-print(s.parse(query_aud)[0].args)
+#print(s.parse(query_aud)[0].args)
+#print(s._parse_select_from(s.parse(query_aud)[0]))
 #dbms = PinPom()
 #c = dbms.catalog_service.load_catalog()
 #print(c)

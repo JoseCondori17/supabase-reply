@@ -15,6 +15,11 @@ class UUIDType(DataType[uuid.UUID]):
             'value': str(self.value)
         }
     
+    def type_format(self, size: int | None = None) -> str:
+        # UUID string length (8-4-4-4-12 format)
+        # ref: https://feasiblecommerce.com/index.php/home/blog/blog-uuid
+        return '36s'
+    
     @classmethod
     def deserialize(cls, data: dict) -> 'UUIDType':
         return cls(uuid.UUID(data['value']))
@@ -30,6 +35,9 @@ class BooleanType(DataType[bool]):
             'type': 'BOOLEAN',
             'value': self.value
         }
+    
+    def type_format(self, size: int | None = None) -> str:
+        return '?'
     
     @classmethod
     def deserialize(cls, data: dict) -> 'BooleanType':

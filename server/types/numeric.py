@@ -14,6 +14,9 @@ class IntegerType(DataType[int]):
             "value": self.value
         }
     
+    def type_format(self, size: int | None = None) -> str:
+        return 'i'
+    
     @classmethod
     def deserialize(cls, data: dict[str, any]) -> 'IntegerType':
         if data["type"] != "integer":
@@ -33,6 +36,9 @@ class FloatType(DataType[float]):
             "type": "float",
             "value": self.value
         }
+    
+    def type_format(self, size: int | None = None) -> str:
+        return 'f'
     
     @classmethod
     def deserialize(cls, data: dict[str, any]) -> 'FloatType':

@@ -19,6 +19,9 @@ class DataType(Generic[T], ABC):
     @abstractmethod
     def serialize(self) -> dict: pass
     
+    @abstractmethod
+    def type_format(self, size: int | None = None) -> str: pass
+    
     @classmethod
     @abstractmethod
     def deserialize(cls, data: dict) -> 'DataType[T]': pass

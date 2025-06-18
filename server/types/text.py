@@ -40,6 +40,11 @@ class StringType(DataType[str]):
             "value": self.value
         }
     
+    def type_format(self, size: int | None = None) -> str:
+        if size is None:
+            raise ValueError("StringType requires a size parameter")
+        return f'{size}s'
+    
     @classmethod
     def deserialize(cls, data: dict[str, any]) -> 'StringType':
         if data["type"] != "string":
@@ -59,6 +64,11 @@ class TextType(DataType[str]):
             "type": "text",
             "value": self.value
         }
+    
+    def type_format(self, size: int | None = None) -> str:
+        if size is None:
+            raise ValueError("TextType requires a size parameter")
+        return f'{size}s'
     
     @classmethod
     def deserialize(cls, data: dict[str, any]) -> 'TextType':

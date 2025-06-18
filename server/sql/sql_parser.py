@@ -162,11 +162,10 @@ class SQLParser:
             }
             return condition
         elif isinstance(where_exp, MatchAgainst):
-            # review this
             return {
                 'type': "MATCHAGAINST",
                 'column': where_exp.find(Identifier).this,
-                'value': where_exp.find(Identifier).this
+                'value': where_exp.find(Literal).this
             }
         return None
 

@@ -15,6 +15,9 @@ class DateType(DataType[date]):
             'value': self.value.isoformat()
         }
     
+    def type_format(self, size: int | None = None) -> str:
+        return '10s'
+    
     @classmethod
     def deserialize(cls, data: dict) -> 'DateType':
         return cls(date.fromisoformat(data['value']))
@@ -33,6 +36,9 @@ class TimeType(DataType[time]):
             'value': self.value.isoformat()
         }
     
+    def type_format(self, size: int | None = None) -> str:
+        return '8s'
+    
     @classmethod
     def deserialize(cls, data: dict) -> 'TimeType':
         return cls(time.fromisoformat(data['value']))
@@ -50,6 +56,9 @@ class TimestampType(DataType[datetime]):
             'type': 'TIMESTAMP',
             'value': self.value.isoformat()
         }
+    
+    def type_format(self, size: int | None = None) -> str:
+        return '26s'  # YYYY-MM-DD HH:MM:SS.mmmmmm
     
     @classmethod
     def deserialize(cls, data: dict) -> 'TimestampType':

@@ -13,6 +13,11 @@ class JSONType(DataType[dict[str, any]]):
             'value': json.dumps(self.value)
         }
     
+    def type_format(self, size: int | None = None) -> str:
+        if size is None:
+            raise ValueError("JSONType requires a size parameter")
+        return f'{size}s'
+    
     @classmethod
     def deserialize(cls, data: dict) -> 'JSONType':
         return cls(json.loads(data['value']))
@@ -28,6 +33,11 @@ class GeometricType(DataType[dict[str, any]]):
             'type': 'GEOMETRIC',
             'value': self.value
         }
+    
+    def type_format(self, size: int | None = None) -> str:
+        if size is None:
+            raise ValueError("GeometricType requires a size parameter")
+        return f'{size}s'
     
     @classmethod
     def deserialize(cls, data: dict) -> 'GeometricType':
