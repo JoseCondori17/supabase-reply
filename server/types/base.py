@@ -6,8 +6,9 @@ T = TypeVar('T')
 
 class DataType(Generic[T], ABC):
 
-    def __init__(self, value: T):
+    def __init__(self, value: T, size: int = None):
         self._value = value
+        self.size = size if size is not None else self.type_size()
     
     @property
     def value(self) -> T:
@@ -34,7 +35,7 @@ class DataType(Generic[T], ABC):
 
     @classmethod
     @abstractmethod
-    def deserialize_from_bytes(cls, data: bytes) -> 'DataType[T]': pass
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'DataType[T]': pass
     
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):

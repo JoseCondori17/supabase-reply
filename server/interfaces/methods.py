@@ -2,7 +2,7 @@ from typing import Protocol, Iterator, Literal
 from server.types.base import DataType
 
 class Insertable(Protocol):
-    def insert(self, key: DataType, value: DataType, **args): ...
+    def insert(self, key: DataType, position: int, **args): ...
 
 class Searchable(Protocol):
     def search(self, key: DataType) -> DataType: ... # only value

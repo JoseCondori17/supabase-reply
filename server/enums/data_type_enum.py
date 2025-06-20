@@ -16,10 +16,11 @@ class DataTypeLabel(IntEnum):
     JSONB       = 12
     DECIMAL     = 13
 
-# Categorías de tipos de datos
+# category types
 class IntegerTypeSize(IntEnum):
     SMALLINT    = 2
     INT         = 4
+    INTEGER     = 4
     BIGINT      = 8
     
 class NumericTypeSize(IntEnum):
@@ -28,7 +29,7 @@ class NumericTypeSize(IntEnum):
 
 class TemporalTypeSize(IntEnum):
     DATE        = 4
-    TIME        = 8
+    TIME        = 5
     TIMESTAMP   = 8
 
 class OtherTypeSize(IntEnum):

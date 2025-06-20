@@ -32,8 +32,8 @@ class PathBuilder:
     def table_meta(self, db_name: str, schema_name: str, table_name: str) -> Path:
         return self.table_dir(db_name, schema_name, table_name) / "meta.dat"
 
-    def table_index(self, db_name: str, schema_name: str, table_name: str, property: str) -> Path:
-        return self.table_dir(db_name, schema_name, table_name) / f"idx_{property}_{table_name}.dat"
+    def table_index(self, db_name: str, schema_name: str, table_name: str, index_name: str) -> Path: # review changes: params for index_name
+        return self.table_dir(db_name, schema_name, table_name) / f"idx_{index_name}.dat"
 
     def function_file(self, db_name: str, schema_name: str, table_name: str, function_name: str) -> Path:
         return self.schema_dir(db_name, schema_name) / f"fn_{function_name}_{table_name}.dat"

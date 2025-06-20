@@ -47,7 +47,6 @@ class TableService(BaseService):
         self.schema_service._update_schema_metadata(db_name, sch_name, schema)
         
         self.file_manager.write_data(table, table_paths['meta'])
-
         return True
 
     def get_table(self, db_name: str, sch_name: str, tab_name: str) -> Table:
@@ -81,6 +80,10 @@ class TableService(BaseService):
         schema = self.schema_service.get_schema(db_name, sch_name)
         return max(schema.sch_tables.values(), default=0) + 1
     
+    def _update_table(self, db_name: str, schema_name: str, table: Table) -> None:
+        table_meta_path = self.path_builder.table_meta(db_name, schema_name, table.tab_name)
+        self.file_manager.write_data(table, table_meta_path)
+
     def _create_table_structure(self, db_name: str, schema_name: str, table_name: str) -> dict[str, Path]:
         paths = {
             'table': self.path_builder.table_dir(db_name, schema_name, table_name),

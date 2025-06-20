@@ -12,30 +12,30 @@ class DateType(DataType[date]):
     
     def serialize(self) -> dict:
         return {
-            'type': 'DATE',
+            'type': 'date',
             'value': self.value.isoformat()
         }
     
     def serialize_to_bytes(self) -> bytes:
         format_str = self.type_format()
-        return struct.pack(format_str, self.value.isoformat().encode('utf-8'))
+        return struct.pack(format_str, self.value.year, self.value.month, self.value.day)
     
     def type_size(self) -> int:
-        return 10
+        return 4
 
     def type_format(self) -> str:
-        return '10s'
+        return '!HBB'
     
     @classmethod
     def deserialize(cls, data: dict) -> 'DateType':
         return cls(date.fromisoformat(data['value']))
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes) -> DataType:
-        if len(data) != 10:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+        if len(data) != 4:
             raise ValueError("Invalid data size for DateType")
-        value = struct.unpack('10s', data)[0].decode('utf-8').strip()
-        return cls(date.fromisoformat(value))
+        year, month, day = struct.unpack('!HBB', data)
+        return cls(date(year, month, day))
 
 class TimeType(DataType[time]):
     def compare(self, other: 'TimeType') -> int:
@@ -47,30 +47,34 @@ class TimeType(DataType[time]):
     
     def serialize(self) -> dict:
         return {
-            'type': 'TIME',
+            'type': 'time',
             'value': self.value.isoformat()
         }
     
     def serialize_to_bytes(self) -> bytes:
         format_str = self.type_format()
-        return struct.pack(format_str, self.value.isoformat().encode('utf-8'))
+        return struct.pack(format_str, 
+                          self.value.hour, 
+                          self.value.minute, 
+                          self.value.second,
+                          self.value.microsecond)
 
     def type_size(self) -> int:
-        return 8
+        return 5
     
     def type_format(self) -> str:
-        return '8s'
+        return '!BBBH'
     
     @classmethod
     def deserialize(cls, data: dict) -> 'TimeType':
         return cls(time.fromisoformat(data['value']))
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes) -> DataType:
-        if len(data) != 8:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+        if len(data) != 5:
             raise ValueError("Invalid data size for TimeType")
-        value = struct.unpack('8s', data)[0].decode('utf-8').strip()
-        return cls(time.fromisoformat(value))
+        h, m, s, ms = struct.unpack('!BBBH', data)
+        return cls(time(h, m, s, ms))
 
 class TimestampType(DataType[datetime]):
     def compare(self, other: 'TimestampType') -> int:
@@ -82,27 +86,28 @@ class TimestampType(DataType[datetime]):
     
     def serialize(self) -> dict:
         return {
-            'type': 'TIMESTAMP',
+            'type': 'timestamp',
             'value': self.value.isoformat()
         }
     
     def serialize_to_bytes(self) -> bytes:
         format_str = self.type_format()
-        return struct.pack(format_str, self.value.isoformat().encode('utf-8'))
+        timestamp = int(self.value.timestamp() * 1_000_000)
+        return struct.pack(format_str, timestamp)
 
     def type_size(self) -> int:
-        return 26
+        return 8
 
     def type_format(self) -> str:
-        return '26s'  # YYYY-MM-DD HH:MM:SS.mmmmmm
+        return '!Q'  # unix timestamp in microseconds
     
     @classmethod
     def deserialize(cls, data: dict) -> 'TimestampType':
         return cls(datetime.fromisoformat(data['value'])) 
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes) -> DataType:
-        if len(data) != 26:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+        if len(data) != 8:
             raise ValueError("Invalid data size for TimestampType")
-        value = struct.unpack('26s', data)[0].decode('utf-8').strip()
-        return cls(datetime.fromisoformat(value))
+        microseconds = struct.unpack('!Q', data)[0]
+        return cls(datetime.fromtimestamp(microseconds / 1_000_000))

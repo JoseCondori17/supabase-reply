@@ -141,8 +141,8 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
         else:
             self._load_from_file()
           
-    def insert(self, key: DataType, value: any, **args) -> bool:
-        record = IndexRecord(key, value)
+    def insert(self, key: DataType, position: int, **args) -> bool:
+        record = IndexRecord(key, position)
         hash_value = self.hash_function(key)
         bucket_id = self.directory.get_bucket_id(hash_value)
 

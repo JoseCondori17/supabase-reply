@@ -1,13 +1,13 @@
-import nltk
+""" import nltk
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
+from nltk.stem import PorterStemmer """
 import string
 import struct
 
 from server.types.base import DataType
 
 # Descargar recursos la primera vez
-nltk.download('punkt')
+""" nltk.download('punkt')
 nltk.download('stopwords')
 
 # Recursos globales
@@ -15,14 +15,12 @@ _stop_words = set(stopwords.words('english'))
 _stemmer = PorterStemmer()
 
 def preprocess(text: str) -> list[str]:
-    """
-    Tokeniza, filtra stopwords, elimina signos y aplica stemming.
-    """
+    # Tokeniza, filtra stopwords, elimina signos y aplica stemming.
     tokens = nltk.word_tokenize(text.lower())
     tokens = [t for t in tokens if t not in string.punctuation]
     tokens = [t for t in tokens if t not in _stop_words]
     tokens = [_stemmer.stem(t) for t in tokens]
-    return tokens
+    return tokens """
 
 #print(preprocess("Hi everyone, my name is Rodri and I from Peru"))
 
@@ -45,28 +43,30 @@ class StringType(DataType[str]):
         return struct.pack(format_str, self.value.encode('utf-8'))
     
     def type_size(self) -> int:
-        return len(self.value)
+        if self.size is None:
+            raise ValueError("StringType requires a size parameter")
+        return self.size
     
     def type_format(self) -> str:
-        size = len(self.value)
-        if size <= 0:
+        if self.size is None:
             raise ValueError("StringType requires a size parameter")
-        return f'{size}s'
+        return f'{self.size}s'
     
     @classmethod
     def deserialize(cls, data: dict[str, any]) -> 'StringType':
-        if data["type"] != "string":
+        if data["type"] not in ["string", "varchar", "char"]:
             raise ValueError("Invalid type for StringType")
-        return cls(data["value"])
+        return cls(data["value"], data["size"])
 
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
         size = len(data)
         if size <= 0:
             raise ValueError("Invalid data size for StringType")
         format_str = f'{size}s'
         value = struct.unpack(format_str, data)[0].decode('utf-8').strip()
-        return cls(value)
+        real_size = args.get('type_size', True)
+        return cls(value, size=real_size)
 
 class TextType(DataType[str]):
     def compare(self, other: 'TextType') -> int:
@@ -87,7 +87,9 @@ class TextType(DataType[str]):
         return struct.pack(format_str, self.value.encode('utf-8'))
 
     def type_size(self) -> int:
-        return len(self.value)
+        if self.size is None:
+            raise ValueError("TextType requires a size parameter")
+        return self.size
     
     def type_format(self) -> str:
         size = len(self.value)

@@ -1,6 +1,6 @@
 from typing import Type
 from server.types.base import DataType
-from server.types.numeric import IntegerType, FloatType, DecimalType
+from server.types.numeric import IntegerType, FloatType, BigIntType, IntType, SmallIntType
 from server.types.text import StringType, TextType
 from server.types.datetime import DateType, TimeType, TimestampType
 from server.types.special import UUIDType, BooleanType
@@ -10,11 +10,12 @@ class TypeFactory:
     
     _type_registry: dict[str, Type[DataType]] = {
         # numerics
-        "smallint": IntegerType,
+        "smallint": SmallIntType,
         "integer": IntegerType,
-        "bigint": IntegerType,
+        "int": IntType,
+        "bigint": BigIntType,
         "double": FloatType,
-        "decimal": DecimalType,
+        # "decimal": DecimalType,
         
         # text
         "char": StringType,

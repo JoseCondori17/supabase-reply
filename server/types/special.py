@@ -33,7 +33,7 @@ class UUIDType(DataType[uuid.UUID]):
         return cls(uuid.UUID(data['value']))
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
         if len(data) != 36:
             raise ValueError("Invalid data size for UUIDType")
         value = struct.unpack('36s', data)[0].decode('utf-8').strip()
@@ -66,7 +66,7 @@ class BooleanType(DataType[bool]):
         return cls(bool(data['value'])) 
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
         if len(data) != 1:
             raise ValueError("Invalid data size for BooleanType")
         value = struct.unpack('?', data)[0]
