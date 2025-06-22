@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic
-# I prefer use future from bindings - review 12/06
+# check
 
 T = TypeVar('T')
 
@@ -13,6 +13,14 @@ class DataType(Generic[T], ABC):
     @property
     def value(self) -> T:
         return self._value
+    
+    @property
+    def class_type(self) -> str:
+        return self.__class__.__name__
+
+    @property    
+    def type(self) -> str:
+        return self.class_type.lower().removesuffix('type')
     
     @abstractmethod
     def compare(self, other: 'DataType[T]') -> int: pass

@@ -31,7 +31,7 @@ class DateType(DataType[date]):
         return cls(date.fromisoformat(data['value']))
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'DateType':
         if len(data) != 4:
             raise ValueError("Invalid data size for DateType")
         year, month, day = struct.unpack('!HBB', data)
@@ -70,13 +70,13 @@ class TimeType(DataType[time]):
         return cls(time.fromisoformat(data['value']))
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'TimeType':
         if len(data) != 5:
             raise ValueError("Invalid data size for TimeType")
         h, m, s, ms = struct.unpack('!BBBH', data)
         return cls(time(h, m, s, ms))
 
-class TimestampType(DataType[datetime]):
+class TimestampType(DataType[datetime]):    
     def compare(self, other: 'TimestampType') -> int:
         if self.value < other.value:
             return -1
@@ -106,7 +106,7 @@ class TimestampType(DataType[datetime]):
         return cls(datetime.fromisoformat(data['value'])) 
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'TimestampType':
         if len(data) != 8:
             raise ValueError("Invalid data size for TimestampType")
         microseconds = struct.unpack('!Q', data)[0]

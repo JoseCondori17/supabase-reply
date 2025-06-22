@@ -15,6 +15,7 @@ class TypeFactory:
         "int": IntType,
         "bigint": BigIntType,
         "double": FloatType,
+        "float": FloatType,
         # "decimal": DecimalType,
         
         # text

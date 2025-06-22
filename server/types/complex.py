@@ -10,7 +10,7 @@ class JSONType(DataType[dict[str, any]]):
     
     def serialize(self) -> dict:
         return {
-            'type': 'JSON',
+            'type': 'json',
             'value': json.dumps(self.value)
         }
     
@@ -33,7 +33,7 @@ class JSONType(DataType[dict[str, any]]):
         return cls(json.loads(data['value']))
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'JSONType':
         if len(data) <= 0:
             raise ValueError("Invalid data size for JSONType")
         format_str = f'{len(data)}s'
@@ -49,7 +49,7 @@ class GeometricType(DataType[dict[str, any]]):
     
     def serialize(self) -> dict:
         return {
-            'type': 'GEOMETRIC',
+            'type': 'geometric',
             'value': json.dumps(self.value)
         }
     
@@ -72,7 +72,7 @@ class GeometricType(DataType[dict[str, any]]):
         return cls(json.loads(data['value']))
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'GeometricType':
         if len(data) <= 0:
             raise ValueError("Invalid data size for GeometricType")
         format_str = f'{len(data)}s'

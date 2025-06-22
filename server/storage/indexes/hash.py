@@ -31,21 +31,23 @@ class Bucket:
     bucket_id: int
     local_depth: int = 0
     max_size: int = 0
-    records: list[IndexRecord] = field(default_factory=[])
+    records: list[IndexRecord] = field(default_factory=list)
     
     def __post_init__(self):
-        self.header = BucketHeader(self.local_depth, self.max_size, 0)
+        self.header = BucketHeader(self.local_depth, self.max_size, len(self.records))
     
     def is_full(self) -> bool:
-        return len(self.records) >= self.header.max_size
+        return len(self.records) >= self.max_size
     
     def add_record(self, record: IndexRecord) -> bool:
         for i, exist_record in enumerate(self.records):
             if exist_record.key == record.key:
                 self.records[i] = record
+                self.header.record_count = len(self.records)
                 return True
         
-        if self.is_full(): return False
+        if self.is_full(): 
+            return False
         
         self.records.append(record)
         self.header.record_count = len(self.records)
@@ -86,7 +88,7 @@ class Directory:
     
     def __post_init__(self):
         self.size = 1 << self.global_depth # 2¨global
-        self.entries: list = field(default_factory=[0] * self.size)
+        self.entries: list = [0] * self.size
         
     def get_bucket_id(self, hash_value) -> int:
         mask = (1 << self.global_depth) - 1
@@ -129,7 +131,6 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
     DIRECTORY_ENTRY_SIZE = 4 # 4 bit for each entry(int)
     
     def __init__(self, idx_filename: str, data_type: DataType, bucket_size: int = 10) -> None:
-        super().__init__()
         self.idx_filename = idx_filename
         self.bucket_size = bucket_size
         self.data_type = data_type
@@ -176,22 +177,32 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
         return self.insert(key, new_value)
     
     def get_all_keys(self) -> list[int]: # review return
+        seen_keys = set()
         keys = []
-        for bucket_id in range(self.header.bucket_count):
+        
+        unique_bucket_ids = set(self.directory.entries)        
+        for bucket_id in unique_bucket_ids:
             bucket = self._read_bucket(bucket_id)
             for record in bucket.records:
-                if record.key.value not in keys:
-                    keys.append(record.key.value)
+                key_value = record.key.value
+                if key_value not in seen_keys:
+                    seen_keys.add(key_value)
+                    keys.append(key_value)
         return keys
     
     def get_all_records(self) -> list[IndexRecord]:
-        keys = []
-        for bucket_id in range(self.header.bucket_count):
+        seen_keys = set()
+        records = []
+        
+        unique_bucket_ids = set(self.directory.entries)        
+        for bucket_id in unique_bucket_ids:
             bucket = self._read_bucket(bucket_id)
             for record in bucket.records:
-                if record.key not in keys:
-                    keys.append(record.key)
-        return keys
+                key_value = record.key.value
+                if key_value not in seen_keys:
+                    seen_keys.add(key_value)
+                    records.append(record)
+        return records
     
     def search(self, key: DataType) -> int:
         record = self.search_record(key)
@@ -213,6 +224,7 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
                 f.write(struct.pack('I', bucket_id))
 
             empty_bucket = Bucket(0, 0, self.bucket_size)
+            empty_bucket.header.max_size = self.bucket_size
             self._write_bucket_to_file(f, empty_bucket)
                 
     def _load_from_file(self):
@@ -238,15 +250,15 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
         new_local_depth = bucket.local_depth + 1
         bit_position = bucket.local_depth
         # split records- using 'class Bucket'
-        records_1, records_2 = bucket.split_records(bit_position, self.hash_function)
+        records_1, records_2 = bucket.split_record(bit_position, self.hash_function)
         # new bucket
         new_bucket_id = self.header.bucket_count
         self.header.bucket_count += 1
         # update bucket
         bucket.records = records_1
         bucket.local_depth = new_local_depth
-        bucket.header.record_count = len(records_1)
         bucket.header.local_depth = new_local_depth
+        bucket.header.record_count = len(records_1)
         
         # create new bucket and update directory: used Directory class
         # [...data] original
@@ -256,16 +268,16 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
 
         self._write_bucket(bucket)
         self._write_bucket(new_bucket)
-        
         self._save_header()
         self._save_directory()
+
+        return True
 
     def _get_bucket_position(self, bucket_id: int) -> int:
         header_size = 12  # main header
         directory_size = self.header.directory_size * 4  # 4 b for each entries
-        bucket_header_size = 12  # local depth, max size, record count
         record_size = self.data_type.type_size() + 4  # size of key (value) + position
-        bucket_size = bucket_header_size + (self.bucket_size * record_size)
+        bucket_size = 12 + (self.bucket_size * record_size)
         return header_size + directory_size + (bucket_id * bucket_size)
     
     def _read_bucket(self, bucket_id: int) -> Bucket:
@@ -275,6 +287,7 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
             header_data = f.read(12)
             if len(header_data) < 12:
                 return Bucket(bucket_id, 0, self.bucket_size)
+            
             bucket_header = BucketHeader.from_bytes(header_data)
             records = []
             for _ in range(bucket_header.record_count):
@@ -284,9 +297,15 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
                 if len(key_data) < self.data_type.type_size() or len(position_data) < 4:
                     break
                 
-                position = struct.unpack('I', position_data)[0]
-                key = self.data_type.deserialize_from_bytes(key_data)
-                records.append(IndexRecord(key, position))
+                try:
+                    # temporary fix for deserialization success
+                    # if the key is not deserialized correctly, it will raise an error
+                    # it does not read the complete bucket (only valid values)
+                    position = struct.unpack('I', position_data)[0]
+                    key = self.data_type.deserialize_from_bytes(key_data)
+                    records.append(IndexRecord(key, position))
+                except (ValueError, struct.error) as e:
+                    break
             
             return Bucket(bucket_id, bucket_header.local_depth, bucket_header.max_size, records)
 
@@ -297,12 +316,20 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
             self._write_bucket_to_file(f, bucket)
 
     def _write_bucket_to_file(self, f, bucket: Bucket):
+        bucket.header.local_depth = bucket.local_depth
+        bucket.header.max_size = bucket.max_size
+        bucket.header.record_count = len(bucket.records)
         f.write(bucket.header.to_bytes())
         # write records [*max_size of bucket]
         for record in bucket.records:
-            key_data = self.data_type.serialize_to_bytes(record.key)
+            key_data = record.key.serialize_to_bytes()
             f.write(key_data)
             f.write(struct.pack('I', record.position))
+        record_size = self.data_type.type_size() + 4
+        remaining_records = self.bucket_size - len(bucket.records)
+        if remaining_records > 0:
+            padding = b'\x00' * (remaining_records * record_size)
+            f.write(padding)
 
     def _save_header(self):
         with open(self.idx_filename, 'r+b') as f:
@@ -316,5 +343,5 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
                 f.write(struct.pack('I', bucket_id))
 
     def hash_function(self, key: DataType): # review this
-        key_bytes = struct.pack(key.type_format(), key.value)
+        key_bytes = key.serialize_to_bytes()
         return xxh64(key_bytes).intdigest()

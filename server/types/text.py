@@ -40,7 +40,8 @@ class StringType(DataType[str]):
     
     def serialize_to_bytes(self) -> bytes:
         format_str = self.type_format()
-        return struct.pack(format_str, self.value.encode('utf-8'))
+        value = self.value.ljust(self.size)[:self.size]
+        return struct.pack(format_str, value.encode('utf-8'))
     
     def type_size(self) -> int:
         if self.size is None:
@@ -60,15 +61,17 @@ class StringType(DataType[str]):
 
     @classmethod
     def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
-        size = len(data)
-        if size <= 0:
-            raise ValueError("Invalid data size for StringType")
-        format_str = f'{size}s'
-        value = struct.unpack(format_str, data)[0].decode('utf-8').strip()
-        real_size = args.get('type_size', True)
-        return cls(value, size=real_size)
+        type_size = args.get('type_size', len(data))
+        if len(data) < type_size:
+            data = data + b' ' * (type_size - len(data))
+        elif len(data) > type_size:
+            data = data[:type_size]
+        
+        format_str = f'{type_size}s'
+        value = struct.unpack(format_str, data)[0].decode('utf-8').rstrip()
+        return cls(value, size=type_size)
 
-class TextType(DataType[str]):
+class TextType(DataType[str]):    
     def compare(self, other: 'TextType') -> int:
         if self.value < other.value:
             return -1

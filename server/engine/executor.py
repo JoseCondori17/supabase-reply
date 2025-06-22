@@ -1,6 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass, field
-from sqlglot.expressions import *
+from sqlglot.expressions import Create, Insert, Delete, Drop, Select, Expression
 
 from server.sql.sql_parser import SQLParser
 from server.storage.disk.file_manager import FileManager
@@ -10,7 +10,7 @@ from server.catalog.catalog import CatalogService
 from server.catalog.database import DatabaseService
 from server.catalog.schema import SchemaService
 from server.catalog.table import TableService
-from server.catalog.column import ColumnService
+from server.catalog.column import ColumnService, Column
 from server.catalog.index import IndexService
 
 from server.storage.indexes.heap import HeapFile
@@ -117,15 +117,26 @@ class PinPom:
         parser = self.sql_parser._parse_select_from(expr)
         params = parser['params']
         conditions = parser['conditions']
-        
         table = self.table_service.get_table(self.database_global, self.schema_global, parser['table'])
         heap_file = self.path_builder.table_data(self.database_global, self.schema_global, table.tab_name)
         heap = HeapFile(heap_file, table.tab_columns)
-        result = heap.get_all_records(params)
-        for s in result:
-            for p in s:
-                print(p.value, end=' ')
-            print()
+
+        new_conditions = self.tranform_type_conditions(conditions, table.tab_columns)
+        index = IndexService.call_index_by_name(table.tab_indexes, new_conditions['column'])
+        if index:
+            if new_conditions['type'] == 'EQ':
+                index.search(new_conditions['value'])
+                result = heap.get_record_json(params, new_conditions)
+                return result
+            elif new_conditions['type'] == 'LT': # change
+                index.search(new_conditions['value'])
+                result = heap.get_record_json(params, new_conditions)
+            elif new_conditions['type'] == 'BETWEEN':
+                result = heap.get_all_records_json(params, new_conditions)
+                return result
+        else:
+            result = heap.get_all_records_json(params, new_conditions)
+            return result
 
     def delete_op(self, expr: Expression):
         parser = self.sql_parser._parse_delete_from_table(expr)
@@ -142,9 +153,42 @@ class PinPom:
                 data.append(data_type)
             position = heap.insert(data)
             for call in indexes:
-                call['index'].insert(data[call['column_index']], position)
-                
+                data_type_instance = data[call['column_index']]
+                call['index'].insert(data_type_instance, position)            
     def set_database(self, db_name) -> None:
         self.database = db_name
     def set_schema(self, schema_name) -> None:
         self.schema = schema_name
+
+    @classmethod
+    def tranform_type_conditions(cls, condition: dict, columns: list[Column]) -> dict:
+        if condition['type'] == 'AND':
+            return {
+                'type': 'AND',
+                'left': cls.tranform_type_conditions(condition['left'], columns),
+                'right': cls.tranform_type_conditions(condition['right'], columns)
+            }
+        elif condition['type'] == 'OR':
+            return {
+                'type': 'OR',
+                'left': cls.tranform_type_conditions(condition['left'], columns),
+                'right': cls.tranform_type_conditions(condition['right'], columns)
+            }
+        else:
+            column_name = condition['column']
+            column = next((col for col in columns if col.att_name == column_name), None)
+            if not column:
+                raise ValueError(f"Column {column_name} not found in table.")
+            if condition['type'] == "BETWEEN":
+                return {
+                    'type': 'BETWEEN',
+                    'column': column.att_name,
+                    'low': ColumnService.to_type(column.att_type_id, condition['low'], type_size=column.att_len),
+                    'high': ColumnService.to_type(column.att_type_id, condition['high'], type_size=column.att_len)
+                }
+            else:
+                return {
+                    'type': condition['type'],
+                    'column': column_name,
+                    'value': ColumnService.to_type(column.att_type_id, condition['value'], type_size=column.att_len)
+                }

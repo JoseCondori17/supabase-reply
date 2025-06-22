@@ -32,7 +32,7 @@ class SmallIntType(DataType[int]):
         return cls(data["value"])
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'SmallIntType':
         if len(data) != 2:
             raise ValueError("Invalid data size for SmallInt")
         value = struct.unpack('h', data)[0]
@@ -69,7 +69,7 @@ class IntType(DataType[int]):
         return cls(data["value"])
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'IntType':
         if len(data) != 4:
             raise ValueError("Invalid data size for Int")
         value = struct.unpack('i', data)[0]
@@ -106,13 +106,13 @@ class BigIntType(DataType[int]):
         return cls(data["value"])
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'BigIntType':
         if len(data) != 8:
             raise ValueError("Invalid data size for BigInt")
         value = struct.unpack('q', data)[0]
         return cls(value)
 
-IntegerType = IntType
+IntegerType = IntType # alias for compatibility with existing code
 
 class FloatType(DataType[float]):
     def compare(self, other: 'FloatType') -> int:
@@ -136,7 +136,7 @@ class FloatType(DataType[float]):
         return 8
     
     def type_format(self) -> str:
-        return 'f'
+        return 'd'
     
     @classmethod
     def deserialize(cls, data: dict[str, any]) -> 'FloatType':
@@ -145,8 +145,8 @@ class FloatType(DataType[float]):
         return cls(data["value"])
     
     @classmethod
-    def deserialize_from_bytes(cls, data: bytes, **args) -> DataType:
+    def deserialize_from_bytes(cls, data: bytes, **args) -> 'FloatType':
         if len(data) != 8:
             raise ValueError("Invalid data size for FloatType")
-        value = struct.unpack('f', data)[0]
+        value = struct.unpack('d', data)[0]
         return cls(value)

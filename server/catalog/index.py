@@ -133,4 +133,29 @@ class IndexService(BaseService):
                     pass
                 elif index_type == "rtree":
                     pass
+        
         return callables_fn
+    
+    @classmethod
+    def call_index_by_name(cls, indexes: list[Index], index_name: str):
+        for index in indexes:
+            if index.idx_name == index_name:
+                index_type = IndexTypeLabel(index.idx_type).name.lower()
+                if index_type not in cls._indexes:
+                    continue
+                else:
+                    column_pos = index.idx_columns[0]
+                    column_info = index.idx_columns[column_pos]
+                    data_type_instance = ColumnService.to_type(column_info.att_type_id, None, type_size=column_info.att_len) 
+                    index_file = index.idx_file
+                    if index_type == "hash":
+                        return ExtendibleHashingFile(index_file, data_type_instance, bucket_size=10)
+                    elif index_type == "btree":
+                        return BPlusTreeFile(index_file, data_type_instance, order=5)
+                    elif index_type == "isam":
+                        pass
+                    elif index_type == "avl":
+                        pass
+                    elif index_type == "rtree":
+                        pass
+        return None

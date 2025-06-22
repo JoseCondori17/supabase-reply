@@ -3,6 +3,7 @@ import struct
 import os
 
 from server.types.base import DataType
+from server.types.factory import TypeFactory
 from server.types.index_record import IndexRecord
 from server.interfaces.methods import (
     Insertable, 
@@ -34,9 +35,11 @@ class BPlusTreeNode:
     node_id: int
     is_leaf: bool = True
     parent_id: int = -1
-    keys: list[DataType] = field(default_factory=list)
+    keys: list[DataType] = None
     
     def __post_init__(self):
+        if self.keys is None:
+            self.keys = []
         self.header = NodeHeader(self.is_leaf, 0, self.parent_id)
         if self.is_leaf:
             self.data_positions: list[int] = []
@@ -54,16 +57,17 @@ class BPlusTreeNode:
         if not self.is_leaf:
             return False
         
+        # if is duplicate then replace the position
         for i, key in enumerate(self.keys):
             if key == record.key:
                 self.data_positions[i] = record.position
                 return True
         
-        insert_pos = 0
+        insert_pos = len(self.keys)
         for i, key in enumerate(self.keys):
             if record.key < key:
+                insert_pos = i
                 break
-            insert_pos = i + 1
         
         self.keys.insert(insert_pos, record.key)
         self.data_positions.insert(insert_pos, record.position)
@@ -102,13 +106,13 @@ class BPlusTreeNode:
         new_node.keys = self.keys[mid:]
         new_node.data_positions = self.data_positions[mid:]
         new_node.header.key_count = len(new_node.keys)
+        
         new_node.next_leaf = self.next_leaf
         
         # update current node
         self.keys = self.keys[:mid]
         self.data_positions = self.data_positions[:mid]
         self.header.key_count = len(self.keys)
-        self.next_leaf = 0
         
         return new_node, new_node.keys[0]
     
@@ -171,7 +175,7 @@ class BPlusTreeHeader:
     def from_bytes(cls, data: bytes) -> 'BPlusTreeHeader':
         if len(data) < 24:
             return cls()
-        root_id, node_count, height, record_count, order, data_type_size = struct.unpack('IIIIII', data)
+        root_id, node_count, height, record_count, order, data_type_size = struct.unpack('IIIIII', data[:24])
         root_id = root_id if root_id != 0xFFFFFFFF else -1
         return cls(root_id, node_count, height, record_count, order, data_type_size)
     
@@ -179,13 +183,12 @@ class BPlusTreeHeader:
         root_id = self.root_node_id if self.root_node_id != -1 else 0xFFFFFFFF
         return struct.pack('IIIIII', root_id, self.node_count, self.height, 
                           self.record_count, self.order, self.data_type_size)
-
+    
 class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
     HEADER_SIZE = 24 # root_node_id, node_count, height, record_count, order, data_type_size
     NODE_HEADER_SIZE = 12
     
     def __init__(self, idx_filename: str, data_type: DataType, order: int = 4) -> None:
-        super().__init__()
         self.idx_filename = idx_filename
         self.data_type = data_type
         self.order = order
@@ -204,11 +207,11 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
         leaf_size = (self.NODE_HEADER_SIZE + 
                     (self.max_keys * self.key_size) + 
                     (self.max_keys * self.pointer_size) + 
-                    self.pointer_size) # next_leaf pointer
+                    self.pointer_size)  # next_leaf pointer
         
         self.node_size = max(internal_size, leaf_size)
         
-        if os.path.getsize(idx_filename) == 0:
+        if not os.path.exists(idx_filename) or os.path.getsize(idx_filename) == 0:
             self.header = BPlusTreeHeader(order=order, data_type_size=self.key_size)
             self._init_index_file()
         else:
@@ -227,7 +230,7 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
         
         leaf_node = self._read_node(leaf_node_id)
         
-        # the key already exists? issue
+        # the key already exists? issue: overwrite
         existing_record = leaf_node.find_record(key)
         if existing_record:
             leaf_node.add_record(record)
@@ -236,10 +239,10 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
         
         # add new record
         leaf_node.add_record(record)
-        
+        self.header.record_count += 1
+
         if not leaf_node.is_full(self.max_keys):
             self._write_node(leaf_node)
-            self.header.record_count += 1
             self._save_header()
             return True
         
@@ -295,7 +298,7 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
     def exist(self, key: DataType) -> bool:
         return self.search_record(key) is not None
     
-    def get_all_keys(self) -> list[any]:
+    def get_all_keys(self) -> list[DataType]:
         keys = []
         if self.header.root_node_id == -1:
             return keys
@@ -305,8 +308,8 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
         while current_node_id != -1:
             node = self._read_node(current_node_id)
             for key in node.keys:
-                keys.append(key.value)
-            current_node_id = node.next_leaf if node.next_leaf != -1 else -1
+                keys.append(key)
+            current_node_id = node.next_leaf if hasattr(node, 'next_leaf') and node.next_leaf != -1 else -1
         
         return keys
     
@@ -321,7 +324,7 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
             node = self._read_node(current_node_id)
             for i, key in enumerate(node.keys):
                 records.append(IndexRecord(key, node.data_positions[i]))
-            current_node_id = node.next_leaf if node.next_leaf != -1 else -1
+            current_node_id = node.next_leaf if hasattr(node, 'next_leaf') and node.next_leaf != -1 else -1
         
         return records
     
@@ -341,7 +344,7 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
                     return records
                 if key >= start_key:
                     records.append(IndexRecord(key, node.data_positions[i]))
-            current_node_id = node.next_leaf if node.next_leaf != -1 else -1
+            current_node_id = node.next_leaf if hasattr(node, 'next_leaf') and node.next_leaf != -1 else -1
         
         return records
     
@@ -419,7 +422,6 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
         self._write_node(leaf_node)
         self._write_node(new_node)
         
-        self.header.record_count += 1
         self._save_header()
         
         self._insert_into_parent(leaf_node.node_id, promotion_key, new_node.node_id)
@@ -504,58 +506,66 @@ class BPlusTreeFile(Insertable, Deletable, Updatable, Searchable):
                 raise ValueError(f"Could not read node header for node {node_id}")
             
             header = NodeHeader.from_bytes(header_data)
-            
             node = BPlusTreeNode(node_id, header.is_leaf, header.parent_id)
             node.header = header
             
-            for i in range(self.max_keys):
+            for i in range(header.key_count):
                 key_data = f.read(self.key_size)
                 if len(key_data) < self.key_size:
-                    break
-                if i < header.key_count:
-                    key = self.data_type.deserialize_from_bytes(key_data)
-                    node.keys.append(key)
+                    raise ValueError(f"Could not read key {i} for node {node_id}")
+                key = self.data_type.deserialize_from_bytes(key_data)
+                node.keys.append(key)
+            
+            f.seek(f.tell() + (self.max_keys - header.key_count) * self.key_size)
             
             if node.is_leaf:
-                for i in range(self.max_keys):
+                for i in range(header.key_count):
                     pos_data = f.read(self.pointer_size)
                     if len(pos_data) < self.pointer_size:
-                        break
-                    if i < header.key_count:
-                        position = struct.unpack('I', pos_data)[0]
-                        node.data_positions.append(position)
+                        raise ValueError(f"Could not read position {i} for node {node_id}")
+                    position = struct.unpack('I', pos_data)[0]
+                    node.data_positions.append(position)
+                
+                f.seek(f.tell() + (self.max_keys - header.key_count) * self.pointer_size)
                 
                 next_data = f.read(self.pointer_size)
                 if len(next_data) >= self.pointer_size:
                     next_leaf = struct.unpack('I', next_data)[0]
                     node.next_leaf = next_leaf if next_leaf != 0xFFFFFFFF else -1
             else:
-                for i in range(self.order):
+                for i in range(header.key_count + 1):
                     ptr_data = f.read(self.pointer_size)
                     if len(ptr_data) < self.pointer_size:
-                        break
-                    if i <= header.key_count:
-                        pointer = struct.unpack('I', ptr_data)[0]
-                        node.pointers.append(pointer)
+                        raise ValueError(f"Could not read pointer {i} for node {node_id}")
+                    pointer = struct.unpack('I', ptr_data)[0]
+                    node.pointers.append(pointer)
             
             return node
     
     def _write_node(self, node: BPlusTreeNode):
+        node.header.key_count = len(node.keys)
+        node.header.is_leaf = node.is_leaf
+        node.header.parent_id = node.parent_id
+        
         required_size = self._get_node_position(node.node_id) + self.node_size
         current_size = os.path.getsize(self.idx_filename)
         
         if required_size > current_size:
             with open(self.idx_filename, 'ab') as f:
-                f.write(b'\0' * (required_size - current_size))
+                padding_size = required_size - current_size
+                f.write(b'\0' * padding_size)
         
         with open(self.idx_filename, 'r+b') as f:
             f.seek(self._get_node_position(node.node_id))
-            
             f.write(node.header.to_bytes())
             
             for i in range(self.max_keys):
                 if i < len(node.keys):
-                    key_data = self.data_type.serialize_to_bytes(node.keys[i])
+                    key_data = node.keys[i].serialize_to_bytes()
+                    if len(key_data) < self.key_size:
+                        key_data += b'\0' * (self.key_size - len(key_data))
+                    elif len(key_data) > self.key_size:
+                        key_data = key_data[:self.key_size]
                 else:
                     key_data = b'\0' * self.key_size
                 f.write(key_data)

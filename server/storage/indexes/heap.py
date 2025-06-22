@@ -18,7 +18,7 @@ class HeapFile:
             f.flush()
             offset = f.tell()
             values_size = sum(value.type_size() for value in values)
-            return offset / values_size
+            return int(offset / values_size)
 
     def delete(self, key: DataType) -> any: ...
     def delete_all(self, key: DataType) -> any: ...
@@ -27,12 +27,15 @@ class HeapFile:
     def get_record(self, selection: list[str], conditions: list[dict]) -> list[DataType]:
         with open(self.heap_filename, 'rb') as f:
             row = self.get_row(f, self.columns)
-
             if len(selection) == 0 or selection[0] == '*':
                 return row
             else:
                 return [row[i] for i, col in enumerate(self.columns) if col.att_name in selection]
-            
+        
+    def get_record_json(self, selection: list[str], conditions: list[dict]) -> dict:
+        record = self.get_record(selection, conditions)
+        return {col.att_name: record[i] for i, col in enumerate(self.columns) if col.att_name in selection}
+
     def get_record_by_position(self, position: int) -> list[DataType]:
         with open(self.heap_filename, 'rb') as f:
             total_size = sum(col.att_len for col in self.columns)
@@ -42,23 +45,29 @@ class HeapFile:
                 ColumnService.deserialize_from_bytes(col.att_type_id, f.read(col.att_len), type_size=col.att_len)
                 for col in self.columns
             ]
-        
-    def get_all_keys(self) -> list[DataType]: ...
-    def get_all_records(self, selection: list[str], conditions: list[dict] = None) -> list[DataType]:
+
+    def get_all_records_json(self, selection: list[str], conditions: list[dict] = None) -> list[dict]:
         records = []
         with open(self.heap_filename, 'rb') as f:
             while True:
                 try:
-                    row = self.get_row(f, self.columns)
-                    if selection[0] == '*':
-                        records.append(row)
+                    row = self.get_row_json(f, self.columns)
+                    if conditions:
+                        if self.evaluate_condition(conditions, row):
+                            if selection[0] == '*':
+                                records.append(row)
+                            else:
+                                filtered_row = {col.att_name: row[col.att_name].value for col in self.columns if col.att_name in selection}
+                                records.append(filtered_row)
                     else:
-                        filtered_row = [row[i] for i, col in enumerate(self.columns) if col.att_name in selection]
-                        records.append(filtered_row)
+                        if selection[0] == '*':
+                            records.append(row)
+                        else:
+                            filtered_row = {col.att_name: row[col.att_name].value for col in self.columns if col.att_name in selection}
+                            records.append(filtered_row)
                 except EOFError:
                     break
         return records
-            
 
     def search(self, key: DataType) -> int: ...
     def search_record(self, key: DataType) -> DataType: ...
@@ -74,3 +83,53 @@ class HeapFile:
             value = ColumnService.desearialize_from_bytes(col.att_type_id, data[:col.att_len], type_size=col.att_len)
             values.append(value)
         return values
+    
+    def get_row_json(self, f, columns: list[Column]) -> dict:
+        row = self.get_row(f, columns)
+        return {col.att_name: row[i] for i, col in enumerate(columns)}
+
+    def evaluate_condition(self, node, data) -> bool:
+        node_type = node['type']
+        
+        if node_type in ('AND', 'OR'):
+            left_result = self.evaluate_condition(node['left'], data)
+            if node_type == 'AND' and not left_result:
+                return False
+            if node_type == 'OR' and left_result:
+                return True
+            right_result = self.evaluate_condition(node['right'], data)
+            return left_result and right_result if node_type == 'AND' else left_result or right_result
+        
+        # BASIC OPERATORS
+        elif node_type in ('LT', 'LTE', 'GT', 'GTE', 'EQ', 'NEQ'):
+            column_value = data.get(node['column'])
+            if column_value is None:
+                raise KeyError(f"Column '{node['column']}' not found")
+            
+            if node_type == 'LT':
+                return column_value < node['value']
+            elif node_type == 'LTE':
+                return column_value <= node['value']
+            elif node_type == 'GT':
+                return column_value > node['value']
+            elif node_type == 'GTE':
+                return column_value >= node['value']
+            elif node_type == 'EQ':
+                return column_value == node['value']
+            elif node_type == 'NEQ':
+                return column_value != node['value']
+        
+        # BETWEEN
+        elif node_type == 'BETWEEN':
+            column_value = data.get(node['column'])
+            if column_value is None:
+                raise KeyError(f"Column '{node['column']}' not found")
+            return node['low'] <= column_value <= node['high']
+        
+        # MATCHAGAINST
+        elif node_type == 'MATCHAGAINST':
+            pass
+        
+        else:
+            raise ValueError(f"Operator not support: {node_type}")
+        
