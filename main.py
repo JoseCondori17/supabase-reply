@@ -35,7 +35,6 @@ create_query = """
     CREATE SCHEMA policia;
     CREATE SCHEMA municipio;
     """
-    
 drop_table = "DROP TABLE product"
 drop_db = "DROP DATABASE users"
 create_index = "CREATE INDEX pk_prod ON product USING BTREE(name);"
@@ -58,12 +57,23 @@ insert_into = """
 create_uni = """
     CREATE DATABASE university;
     CREATE SCHEMA course;
-    CREATE TABLE users (
-        id INT PRIMARY KEY NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(255) UNIQUE,
-        created_at TIMESTAMP
-    );
+    CREATE TABLE music(
+        id INT PRIMARY KEY,
+        track_id VARCHAR(22),
+        track_album_id VARCHAR(22),
+        track_artist VARCHAR(36),
+        track_name VARCHAR(94),
+        playlist_genre VARCHAR(5),
+        playlist_subgenre VARCHAR(25),
+        path_download_wav VARCHAR(190),
+        lyrics VARCHAR(20000),
+        song_url VARCHAR(54),
+        album_url VARCHAR(54),
+        artist_url VARCHAR(54),
+        album_name VARCHAR(145),
+        album_date DATE,
+        image_url VARCHAR(65)
+    )
 """
 user_table = """
     CREATE TABLE users (
@@ -73,7 +83,7 @@ user_table = """
         created_at TIMESTAMP
     );
 """
-select_all = "SELECT email FROM users;"
+select_all = "SELECT * FROM music LIMIT 1"
 delete_from = "DELETE FROM users WHERE age < 21;"
 query_aud = """
     SELECT title, artist, lyric
@@ -83,8 +93,21 @@ query_aud = """
 """
 #print(s.parse(query_aud)[0].args)
 #print(s._parse_select_from(s.parse(query_aud)[0]))
+copy_query = """
+    COPY music
+    FROM 'C:/Users/edudev/Documents/GitHub/supabase-reply/spotify_songs.csv'
+    DELIMITER ','
+"""
+
+query_music = """
+    SELECT title, artist
+    FROM music
+    WHERE path_download_wav <-> 'C:/Users/jefersson/Downloads/coldplay.mpeg'
+    LIMIT 5;
+"""
 dbms = PinPom()
-dbms.execute("SELECT name FROM users WHERE name='Juan Pérez'")
+result = dbms.execute(query_music)
+print(result)
 #print(dbms.index_service.get_indexes("university", "course", "users"))
 #print(sq._parse_create_index(sq.parse(create_index)[0]))
 #c = dbms.catalog_service.load_catalog()

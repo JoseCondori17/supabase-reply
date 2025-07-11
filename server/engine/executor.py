@@ -1,6 +1,7 @@
+import csv
 from pathlib import Path
 from dataclasses import dataclass, field
-from sqlglot.expressions import Create, Insert, Delete, Drop, Select, Expression
+from sqlglot.expressions import Create, Insert, Delete, Drop, Select, Expression, Copy
 
 from server.sql.sql_parser import SQLParser
 from server.storage.disk.file_manager import FileManager
@@ -14,6 +15,12 @@ from server.catalog.column import ColumnService, Column
 from server.catalog.index import IndexService
 
 from server.storage.indexes.heap import HeapFile
+
+## music
+from server.storage.indexes.audio import (
+    obtener_recomendaciones_por_audio_mp3,
+    obtener_recomendaciones_por_song_id
+)
 
 @dataclass
 class PinPom:
@@ -37,7 +44,9 @@ class PinPom:
         
         for expr in exprs:
             try:
-                if isinstance(expr, Create):
+                if isinstance(expr, Copy):
+                    result = self.copy_op(expr)
+                elif isinstance(expr, Create):
                     result = self.create_op(expr)
                 elif isinstance(expr, Drop):
                     result = self.drop_op(expr)
@@ -117,27 +126,62 @@ class PinPom:
         parser = self.sql_parser._parse_select_from(expr)
         params = parser['params']
         conditions = parser['conditions']
+        limit = parser.get('limit')
         table = self.table_service.get_table(self.database_global, self.schema_global, parser['table'])
         heap_file = self.path_builder.table_data(self.database_global, self.schema_global, table.tab_name)
         heap = HeapFile(heap_file, table.tab_columns)
-
-        new_conditions = self.tranform_type_conditions(conditions, table.tab_columns)
-        index = IndexService.call_index_by_name(table.tab_indexes, new_conditions['column'])
-        if index:
-            if new_conditions['type'] == 'EQ':
-                index.search(new_conditions['value'])
-                result = heap.get_record_json(params, new_conditions)
-                return result
-            elif new_conditions['type'] == 'LT': # change
-                index.search(new_conditions['value'])
-                result = heap.get_record_json(params, new_conditions)
-            elif new_conditions['type'] == 'BETWEEN':
-                result = heap.get_all_records_json(params, new_conditions)
-                return result
-        else:
-            result = heap.get_all_records_json(params, new_conditions)
+        if conditions:
+            new_conditions = self.tranform_type_conditions(conditions, table.tab_columns)
+            index = IndexService.call_index_by_name(table.tab_indexes, new_conditions['column'])
+            if index:
+                if new_conditions['type'] == 'EQ':
+                    index.search(new_conditions['value'])
+                    result = heap.get_record_json(params, new_conditions)
+                    return result
+                elif new_conditions['type'] == 'LT': # change
+                    index.search(new_conditions['value'])
+                    result = heap.get_record_json(params, new_conditions)
+                    return result
+            else:
+                if conditions['type'] == 'COSENO':
+                    filepath = conditions['value']
+                    k = limit if limit else 5
+                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "coseno")
+                    return
+                elif conditions['type'] == 'MANHATAN':
+                    filepath = conditions['value']
+                    k = limit if limit else 5
+                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "manhatan")
+                    return
+                elif conditions['type'] == 'LINEAL':
+                    filepath = conditions['value']
+                    k = limit if limit else 5
+                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "lineal")
+                    return
+            result = heap.get_all_records_json(params, limit, new_conditions)
             return result
-
+        result = heap.get_all_records_json(params, limit, None)
+        return result
+    
+    def copy_op(self, expr: Expression):
+        parser = self.sql_parser._parse_copy_from(expr)
+        table = self.table_service.get_table(self.database_global, self.schema_global, parser['table'])
+        heap_file = self.path_builder.table_data(self.database_global, self.schema_global, table.tab_name)
+        heap = HeapFile(heap_file, table.tab_columns)
+        indexes = IndexService.call_indexes(table.tab_indexes, table.tab_columns)
+        with open(parser['file'], 'r', encoding='utf-8') as f:
+            lector = csv.reader(f)
+            next(lector)
+            for row in lector:
+                data = []
+                for col, value in zip(table.tab_columns, row):
+                    data_type = ColumnService.to_type(col.att_type_id, value, type_size=col.att_len)
+                    data.append(data_type)
+                position = heap.insert(data)
+                for call in indexes:
+                    data_type_instance = data[call['column_index']]
+                    call['index'].insert(data_type_instance, position)
+            
     def delete_op(self, expr: Expression):
         parser = self.sql_parser._parse_delete_from_table(expr)
     def insert_op(self, expr: Expression):
@@ -154,7 +198,7 @@ class PinPom:
             position = heap.insert(data)
             for call in indexes:
                 data_type_instance = data[call['column_index']]
-                call['index'].insert(data_type_instance, position)            
+                call['index'].insert(data_type_instance, position)
     def set_database(self, db_name) -> None:
         self.database = db_name
     def set_schema(self, schema_name) -> None:

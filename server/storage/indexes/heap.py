@@ -46,25 +46,26 @@ class HeapFile:
                 for col in self.columns
             ]
 
-    def get_all_records_json(self, selection: list[str], conditions: list[dict] = None) -> list[dict]:
+    def get_all_records_json(self, selection: list[str], limit: int = None, conditions: list[dict] = None) -> list[dict]:
         records = []
+        count = 0
         with open(self.heap_filename, 'rb') as f:
             while True:
                 try:
                     row = self.get_row_json(f, self.columns)
-                    if conditions:
-                        if self.evaluate_condition(conditions, row):
-                            if selection[0] == '*':
-                                records.append(row)
-                            else:
-                                filtered_row = {col.att_name: row[col.att_name].value for col in self.columns if col.att_name in selection}
-                                records.append(filtered_row)
-                    else:
+                    if not conditions or self.evaluate_condition(conditions, row):
                         if selection[0] == '*':
                             records.append(row)
                         else:
-                            filtered_row = {col.att_name: row[col.att_name].value for col in self.columns if col.att_name in selection}
+                            filtered_row = {
+                                col.att_name: row[col.att_name].value
+                                for col in self.columns if col.att_name in selection
+                            }
                             records.append(filtered_row)
+
+                        count += 1
+                        if limit is not None and count >= limit:
+                            break
                 except EOFError:
                     break
         return records
@@ -126,10 +127,24 @@ class HeapFile:
                 raise KeyError(f"Column '{node['column']}' not found")
             return node['low'] <= column_value <= node['high']
         
-        # MATCHAGAINST
-        elif node_type == 'MATCHAGAINST':
-            pass
-        
+        # COSENO <->
+        elif node_type == 'COSENO':
+            column_value = data.get(node['column'])
+            if column_value is None:
+                raise KeyError(f"Column '{node['column']}' not found")
+            
+        # MANHAT <#>
+        elif node_type == 'MANHATAN':
+            column_value = data.get(node['column'])
+            if column_value is None:
+                raise KeyError(f"Column '{node['column']}' not found")
+            
+        # LINEAL <=>
+        elif node_type == 'LINEAL':
+            column_value = data.get(node['column'])
+            if column_value is None:
+                raise KeyError(f"Column '{node['column']}' not found")
+            
         else:
             raise ValueError(f"Operator not support: {node_type}")
         

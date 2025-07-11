@@ -66,7 +66,9 @@ class IntType(DataType[int]):
     def deserialize(cls, data: dict[str, any]) -> 'IntType':
         if data["type"] != "int":
             raise ValueError("Invalid type for Int")
-        return cls(data["value"])
+        if data["value"] is None:
+            return cls(0)
+        return cls(int(data["value"]))
     
     @classmethod
     def deserialize_from_bytes(cls, data: bytes, **args) -> 'IntType':
@@ -103,7 +105,9 @@ class BigIntType(DataType[int]):
     def deserialize(cls, data: dict[str, any]) -> 'BigIntType':
         if data["type"] != "bigint":
             raise ValueError("Invalid type for BigInt")
-        return cls(data["value"])
+        if data["value"] is None:
+            return cls(0)
+        return cls(int(data["value"]))
     
     @classmethod
     def deserialize_from_bytes(cls, data: bytes, **args) -> 'BigIntType':
@@ -142,7 +146,9 @@ class FloatType(DataType[float]):
     def deserialize(cls, data: dict[str, any]) -> 'FloatType':
         if data["type"] != "float":
             raise ValueError("Invalid type for FloatType")
-        return cls(data["value"])
+        if data["value"] is None:
+            return cls(float(0))
+        return cls(float(data["value"]))
     
     @classmethod
     def deserialize_from_bytes(cls, data: bytes, **args) -> 'FloatType':

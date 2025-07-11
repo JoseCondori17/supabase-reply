@@ -1,6 +1,8 @@
 from sqlglot import parse as parse_glot
 from sqlglot.dialects.postgres import Postgres
 from sqlglot.expressions import *
+from sqlglot.tokens import TokenType, Tokenizer
+from sqlglot.parser import Parser
 from dataclasses import dataclass
 
 from server.catalog.column import Column as ColumnModel
@@ -11,11 +13,33 @@ from server.enums.data_type_enum import (
     OtherTypeSize,
 )
 
+# update tokens:
+class VectorTokenizer(Tokenizer):
+    KEYWORDS = {
+        **Tokenizer.KEYWORDS,
+        "<#>": TokenType.AT_GT,  # <#>
+        "<=>": TokenType.HASH_ARROW,  # <=>
+    }
+
+# extend parser
+class VectorParser(Parser):
+    def _parse_comparison(self):
+        if self._match(TokenType.AT_GT):  # <#> Manhattan
+            return self.expression(EQ, expression=self._parse_bitwise(), op='<#>')
+        if self._match(TokenType.HASH_ARROW):  # <=> Coseno
+            return self.expression(EQ, expression=self._parse_bitwise(), op='<=>')
+        return super()._parse_comparison()
+
+# new dialect
+class PinPomSQLDialect(Postgres):
+    class Tokenizer(VectorTokenizer): pass
+    class Parser(VectorParser): pass
+
 @dataclass
 class SQLParser:
     
     def parse(self, sql: str) -> dict[str, any]:
-        return parse_glot(sql, dialect=Postgres)
+        return parse_glot(sql, dialect=PinPomSQLDialect)
         
     def _parse_create_table(self, expr: Expression) -> dict[str, any]:
         table_dict = {}
@@ -100,7 +124,6 @@ class SQLParser:
         return insert_dict
     
     def _parse_select_from(self, expr: Expression) -> dict[str, any]:
-        
         select_dict = {}
         select_dict['table'] = expr.args.get('from').find(Table).find(Identifier).this
         params = []
@@ -116,6 +139,8 @@ class SQLParser:
             conditions = self.parse_condition(where_exp.this)
 
         select_dict['conditions'] = conditions
+        if expr.args.get('limit'):
+            select_dict['limit'] = expr.args['limit'].find(Literal).to_py()
         return select_dict
     
     def _parse_delete_from_table(self, expr: Expression) -> dict[str, any]:
@@ -129,6 +154,13 @@ class SQLParser:
         delete_dict['conditions'] = conditions
         return delete_dict
     
+    def _parse_copy_from(self, expr: Expression) -> dict[str, any]:
+        copy_dict = {}
+        copy_dict['table'] = expr.find(Identifier).this
+        copy_dict['file'] = expr.args['files'][0].find(Literal).this
+        copy_dict['delimiter'] = expr.args['params'][0].find(Literal).this
+        return copy_dict
+
     @classmethod
     def parse_condition(cls, where_exp):
         if isinstance(where_exp, Between):
@@ -161,12 +193,26 @@ class SQLParser:
                 'value': where_exp.find(Literal).to_py()
             }
             return condition
-        elif isinstance(where_exp, MatchAgainst):
+        elif isinstance(where_exp, MatchAgainst): pass
+        elif isinstance(where_exp, Distance):
             return {
-                'type': "MATCHAGAINST",
+                'type': "COSENO", # <-> 
                 'column': where_exp.find(Identifier).this,
                 'value': where_exp.find(Literal).this
             }
+        elif isinstance(where_exp, ArrayContainsAll):
+            return {
+                'type': "MANHATAN", # <#>
+                'column': where_exp.find(Identifier).this,
+                'value': where_exp.find(Literal).this
+            }
+        elif isinstance(where_exp, JSONBExtract):
+            return {
+                'type': "LINEAL", # <=>
+                'column': where_exp.find(Identifier).this,
+                'value': where_exp.find(Literal).this
+            }
+
         return None
 
     
