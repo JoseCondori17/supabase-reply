@@ -5,13 +5,19 @@ import {
   CardDescription,
   CardTitle
 } from "@/components/ui/card";
-import { PlayIcon } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { Music } from "@/interfaces/music.interface";
+import { PlayIcon } from "lucide-react";
+import Link from "next/link";
 
-export function CardMusic({
+interface Music {
+  id: string;
+  track_name: string;
+  track_artist: string;
+  image_url: string;
+}
+
+export function CardPreviewMusic({
   id,
   track_name,
   track_artist,
@@ -29,7 +35,7 @@ export function CardMusic({
             alt={`${track_name} cover`}
             width={300}
             height={300}
-            className="rounded-lg object-cover w-full h-64"
+            className="rounded-lg object-cover w-full h-60"
             onError={() => setImageError(true)}
           />
           <Link href={`/music/${id}`}>
@@ -46,6 +52,7 @@ export function CardMusic({
             <CardTitle>{track_name}</CardTitle>
             <CardDescription>by {track_artist}</CardDescription>
           </div>
+          {/* <span className="text-sm font-bold text-muted-foreground">{bmp} bpms</span> */}
         </div>
       </CardContent>
     </Card>

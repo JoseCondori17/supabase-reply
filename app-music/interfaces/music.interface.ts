@@ -1,11 +1,6 @@
 export interface Music {
   id: string;
-  name: string;
-  author: string;
-  music_url: string;
-  year: string;
-  genre: string;
-  label: string;
-  bmp: number;
+  track_name: string;
+  track_artist: string;
   image_url: string;
-};
+}

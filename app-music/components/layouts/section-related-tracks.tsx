@@ -1,6 +1,4 @@
-import { musicList } from "@/constants/music";
 import { Button } from "../ui/button";
-import { CardMusic } from "../common/card-music";
 
 export function SectionRelatedTracks() {
   return (
@@ -10,16 +8,7 @@ export function SectionRelatedTracks() {
         <Button size='sm' variant='outline'>View all</Button>
       </div>
       <div className="grid grid-cols-5 gap-4">
-        {musicList.map((item) => (
-          <CardMusic
-            id="a"
-            name={item.name}
-            author={item.author}
-            image_url={item.image_url}
-            bmp={item.bmp}
-            key={item.id}
-          />
-        ))}
+
       </div>
     </div>
   );

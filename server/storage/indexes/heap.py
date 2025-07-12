@@ -46,7 +46,7 @@ class HeapFile:
                 for col in self.columns
             ]
 
-    def get_all_records_json(self, selection: list[str], limit: int = None, conditions: list[dict] = None) -> list[dict]:
+    def get_all_records_json(self, selection: list[str], limit: int = None, distinct: bool = None, conditions: list[dict] = None) -> list[dict]:
         records = []
         count = 0
         with open(self.heap_filename, 'rb') as f:
@@ -61,7 +61,11 @@ class HeapFile:
                                 col.att_name: row[col.att_name].value
                                 for col in self.columns if col.att_name in selection
                             }
-                            records.append(filtered_row)
+                            if distinct is None:
+                                records.append(filtered_row)
+                            elif distinct is not None and distinct is True:
+                                if filtered_row not in records:
+                                    records.append(filtered_row)
 
                         count += 1
                         if limit is not None and count >= limit:

@@ -1,6 +1,6 @@
-import { Music } from "@/interfaces/music.interface";
 
-export const musicList: Music[] = [
+
+export const musicList = [
   {
     id: "awda4fsf4",
     name: "Blinding Lights",

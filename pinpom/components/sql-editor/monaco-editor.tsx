@@ -1,12 +1,19 @@
-'use client'
+'use client';
+
 import Editor from '@monaco-editor/react';
 
-export function MonacoEditor() {
+interface MonacoEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export function MonacoEditor({ value, onChange }: MonacoEditorProps) {
   return (
     <div className="h-full w-full overflow-hidden">
       <Editor
-        defaultLanguage='pgsql'
-        defaultValue="-- write your script"
+        language='pgsql'
+        value={value}
+        onChange={(val) => onChange(val || "")}
         options={{
           minimap: { enabled: false },
           scrollBeyondLastLine: false,

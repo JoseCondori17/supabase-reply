@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from server.api.dependencies import admin_instance
-from server.api.v1.endpoints import database, table, schema
+from server.api.v1.endpoints import database, table, schema, query
 
 # init instance
 @asynccontextmanager
@@ -31,7 +31,7 @@ app.add_middleware(
 app.include_router(database.router, prefix="/database", tags=["database"])
 app.include_router(table.router, prefix="/table", tags=["table"])
 app.include_router(schema.router, prefix="/schema", tags=["schema"])
-app.include_router(schema.router, prefix="/query", tags=["query"])
+app.include_router(query.router, prefix="/query", tags=["query"])
 
 if __name__ == '__main__':
     uvicorn.run(

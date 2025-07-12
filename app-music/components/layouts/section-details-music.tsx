@@ -4,14 +4,10 @@ import { Music } from "@/interfaces/music.interface";
 import { PlayMusic } from "@/components/common/play-music";
 
 export function SectionDetailsMusic({
-  name,
-  author,
-  music_url,
-  year,
-  genre,
-  label,
-  bmp,
-  image_url
+  id,
+  track_name,
+  track_artist,
+  image_url,
 }: Music) {
   const [imageError, setImageError] = useState(false);
   const fallbackMusicImage = "@/assets/image/fallback-music.jpg";
@@ -20,7 +16,7 @@ export function SectionDetailsMusic({
       <div className="flex items-center justify-start">
         <img
           src={imageError ? fallbackMusicImage : image_url}
-          alt={`${name} cover`}
+          alt={`${track_name} cover`}
           width={300}
           height={300}
           className="rounded-lg object-cover w-60 h-64"
@@ -28,29 +24,29 @@ export function SectionDetailsMusic({
         />
       </div>
       <div className="flex flex-col gap-y-2 items-start">
-        <h1 className="font-bold text-4xl">{name}</h1>
-        <span className="text-muted-foreground">by {author}</span>
+        <h1 className="font-bold text-4xl">{track_name}</h1>
+        <span className="text-muted-foreground">by {track_artist}</span>
         <PlayMusic src="/music/test.mp3" />
       </div>
       <div className="grid grid-rows-2 justify-start">
         <div className="flex gap-x-20">
           <div className="flex flex-col gap-y-2">
             <span className="text-sm font-bold text-muted-foreground">YEAR</span>
-            <span>{year}</span>
+            <span>{12}</span>
           </div>
           <div className="flex flex-col gap-y-2">
             <span className="text-sm font-bold text-muted-foreground">GENRE</span>
-            <span>{genre}</span>
+            <span>{12}</span>
           </div>
         </div>
         <div className="flex gap-x-20">
           <div className="flex flex-col gap-y-2">
             <span className="text-sm font-bold text-muted-foreground">BPM</span>
-            <span>{bmp}</span>
+            <span>{12}</span>
           </div>
           <div className="flex flex-col gap-y-2">
             <span className="text-sm font-bold text-muted-foreground">LABEL</span>
-            <span>{label}</span>
+            <span>{12}</span>
           </div>
         </div>
       </div>

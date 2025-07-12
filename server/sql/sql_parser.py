@@ -127,7 +127,12 @@ class SQLParser:
         select_dict = {}
         select_dict['table'] = expr.args.get('from').find(Table).find(Identifier).this
         params = []
-        for exp in expr.args.get('expressions'):
+        expr_params = expr.args.get('expressions')
+        if expr.args.get('distinct') is not None:
+            tuple_expr = expr.args.get('expressions')[0]
+            if tuple_expr.expressions:
+                expr_params = tuple_expr.expressions
+        for exp in expr_params:
             if isinstance(exp, Star):
                 params.append("*")
             else:
@@ -138,10 +143,13 @@ class SQLParser:
         if where_exp is not None:
             conditions = self.parse_condition(where_exp.this)
 
+        distinct_exp = expr.args.get('distinct')
+        if distinct_exp is not None:
+            select_dict['distinct'] = True
+
         select_dict['conditions'] = conditions
         if expr.args.get('limit'):
             select_dict['limit'] = expr.args['limit'].find(Literal).to_py()
-
         return select_dict
     
     def _parse_delete_from_table(self, expr: Expression) -> dict[str, any]:

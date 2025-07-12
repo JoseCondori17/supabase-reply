@@ -5,8 +5,8 @@ from server.api.v1.model.query import Query
 
 router = APIRouter()
 
-@router.get("/", status_code=200)
-async def get_all_databases(pp_service: PinPomDep, body: Query):
+@router.post("/sql", status_code=201)
+async def query_sql(pp_service: PinPomDep, body: Query):
     try:
         result = pp_service.execute(body.query)
         return {

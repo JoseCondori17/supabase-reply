@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from xxhash import xxh64
+import xxhash
 import struct
 import os
 
@@ -344,4 +344,4 @@ class ExtendibleHashingFile(Insertable, Deletable, Updatable, Searchable):
 
     def hash_function(self, key: DataType): # review this
         key_bytes = key.serialize_to_bytes()
-        return xxh64(key_bytes).intdigest()
+        return xxhash.xxh64(key_bytes).intdigest()

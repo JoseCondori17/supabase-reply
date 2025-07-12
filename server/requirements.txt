@@ -20,3 +20,5 @@ pandas
 # sqlparser
 xxhash
 sqlglot[rs]
+uvicorn
+fastapi[standard]
