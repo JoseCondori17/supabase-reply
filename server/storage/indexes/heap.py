@@ -127,6 +127,12 @@ class HeapFile:
                 raise KeyError(f"Column '{node['column']}' not found")
             return node['low'] <= column_value <= node['high']
         
+        elif node_type == 'IN':
+            column_value = data.get(node['column'])
+            if column_value is None:
+                raise KeyError(f"Column '{node['column']}' not found")
+            return column_value in node['value']
+
         # COSENO <->
         elif node_type == 'COSENO':
             column_value = data.get(node['column'])

@@ -1,21 +1,15 @@
-import os
-os.environ["PATH"] += os.pathsep + "C:/Users/edudev/AppData/Local/Microsoft/WinGet/Links"
-
-# Convertir a input los audios
-from pydub import AudioSegment
-AudioSegment.converter = "C:/Users/edudev/AppData/Local/Microsoft/WinGet/Links/ffmpeg.exe"
 # FUNCIONES PARA EXTRACTION DE AUDIO
 import matplotlib.pyplot as plt
 import librosa.display 
 import librosa
 import numpy as np
 from sklearn.cluster import KMeans
-import os
 import json
-
-# calculos matematicos
+from pydub import AudioSegment
 import math
 import heapq
+from joblib import dump, load
+from collections import defaultdict
 
 def transform_mp3_to_wav(file_path_import, file_path_export,tiempo_recorte=30):
     """
@@ -69,7 +63,6 @@ def mp3_to_wav(file_path_import,tiempo_recorte=30):
     return audio
 
 
-
 # Obtener el mfcc
 def extract_mfcc(file_path_wav, n_mfcc=13,ventana=0.5,duracion=30,out=False):
     """
@@ -97,8 +90,6 @@ def extract_mfcc(file_path_wav, n_mfcc=13,ventana=0.5,duracion=30,out=False):
 
     return mfcc.T  # Transpuesta: filas = frames, columnas = coeficientes MFCC
 
-
-
 # Sacar los codewords -> kmeans y el centroide es cada codeword 
 def construir_codebook(features, n_clusters=256,out=False):
     """
@@ -118,8 +109,6 @@ def construir_codebook(features, n_clusters=256,out=False):
         print("Entrenamiento completado.")
     return kmeans
 
-
-
 def histogram_audio(mfcc_features_audio, kmeans_model):
     """
     Representa solo un audio como histograma de frecuencias de palabras acústicas.
@@ -138,17 +127,15 @@ def histogram_audio(mfcc_features_audio, kmeans_model):
     hist = hist / np.linalg.norm(hist)  # Normalizar histograma
     return hist
 
-
-
-def guardar_json(diccionario, ruta_salida="./utils/histogramas_acusticos.json"):
+# review
+def guardar_json(diccionario, ruta_salida: str = None):
     """
     Guarda un diccionario como archivo JSON.
     """
+    ruta_salida = ruta_salida if ruta_salida else "./server/utils/histogramas_acusticos.json"
     with open(ruta_salida, "w") as f:
         json.dump(diccionario, f, indent=4)
     print(f"Histogramas guardados en: {ruta_salida}")
-
-from joblib import dump,load
 
 def guardar_objeto(objeto, ruta):
     """
@@ -179,32 +166,9 @@ def show_mfcc(mfcc_features,title="Coeficiente MFCC 1 a lo largo del tiempo"):
     plt.ylabel("Valor del coeficiente")
     plt.show()
 
-## --------------------------------------------------------------------------------
-# Testing 
-
-if __name__ == "__main__":
-    output_path = "/home/jazmin/Escritorio/Database II/Recomendador_musica/fma_small_wave/000"
-    name_file = "000002"
-    #transform_mp3_to_wav("/home/jazmin/Escritorio/Database II/Recomendador_musica/fma_small/000", name_file, output_path)
-
-    # Extraer
-    output_wave = os.path.join(output_path, f"{name_file}.wav")
-    mfcc_matrix = extract_mfcc(output_wave)
-
-    print(mfcc_matrix.shape) # Para ver que cumple con el tamaño de ventanas x numero de coeficientes 
-
-    # Mostrar
-    show_mfcc(mfcc_matrix)
-
-
-
-
 # Aplicar knn con similitud de coseno
 
-import numpy as np
-
 def distancia_euclidiana(val1, val2):
-    
     return np.linalg.norm(np.array(val1) - np.array(val2))
 
 def knn_lineal(query, k):
@@ -220,7 +184,7 @@ def knn_lineal(query, k):
             
     """
     
-    with open("./utils/histogramas_acusticos.json") as f:
+    with open("./server/utils/histogramas_acusticos.json") as f: #global
         codebook = json.load(f)
 
      # 2. Cola de prioridad (simulamos max-heap con -distancia)
@@ -260,7 +224,7 @@ def knn_cosine(query, k):
     Retorna los k elementos más similares al query usando similitud de coseno,
     solo con heap (sin ordenar al final).
     """
-    with open("./utils/histogramas_acusticos.json") as f:
+    with open("./server/utils/histogramas_acusticos.json") as f: #global
         codebook = json.load(f)
 
     heap = []  # max-heap
@@ -280,9 +244,6 @@ def knn_cosine(query, k):
 
 # Con los resultados del knn hacemos calculo de como conectamos para obtener musica lyric, etc etc. 
 
-import heapq
-import json
-
 def distancia_manhattan(v1, v2):
     """
     Calcula la distancia Manhattan (L1) entre dos vectores.
@@ -293,7 +254,7 @@ def knn_manhattan(query, k):
     """
     Retorna los k elementos más cercanos al query usando distancia Manhattan (L1).
     """
-    with open("./utils/histogramas_acusticos.json") as f:
+    with open("./server/utils/histogramas_acusticos.json") as f:
         codebook = json.load(f)
 
     heap = []  # min-heap por defecto en Python
@@ -307,5 +268,82 @@ def knn_manhattan(query, k):
     for _ in range(min(k, len(heap))):
         dist, audio_id = heapq.heappop(heap)
         resultados.append((audio_id, dist))
+
+    return resultados
+
+
+#-----------SPIMY-------
+
+def construir_indice_invertido_por_hist():
+    with open("./server/utils/histogramas_acusticos.json") as f:
+        codebook = json.load(f)
+    
+    indice_invertido = defaultdict(set)
+
+    # Para cada audio y su histograma
+    for audio_id, hist in codebook.items():
+        for i, freq in enumerate(hist):
+            if float(freq) > 0:
+                indice_invertido[str(i)].add(audio_id)
+
+    # Convertir a formato serializable
+    indice_serializable = {
+        cluster: sorted(list(audio_ids)) for cluster, audio_ids in indice_invertido.items()
+    }
+
+    # Guardar en JSON
+    with open("./indice_invertido.json", "w") as f_out:
+        json.dump(indice_serializable, f_out, indent=2)
+
+    return indice_serializable
+
+
+def knn_index_inverted(query_histograma, k):
+    # Load query
+    
+    query_vector = query_histograma
+
+    # Load idx inv
+    with open("./indice_invertido.json") as f: # pending
+        index_inv = json.load(f)
+
+    #Search
+    audios_candidatos = set()
+    # Obtener índices de clusters con frecuencia > 0
+    features_query = [i for i, val in enumerate(query_vector) if val > 0]
+
+    # Buscar candidatos usando esos índices
+    for feature in features_query:
+        audios_candidatos.update(index_inv.get(str(feature), []))
+
+    if not audios_candidatos:
+        print("No se encontraron audios posibles")
+        return []
+
+    with open("./server/utils/histogramas_acusticos.json") as f:
+        data = json.load(f)
+
+    # Seleccionar
+    vectores = []
+    ids = []
+    for audio_id in audios_candidatos:
+        if audio_id in data:
+            vectores.append(data[audio_id])
+            ids.append(audio_id)
+
+    if not vectores:
+        print("Not found vectores ")
+        return []
+
+    
+    heap = []
+    for i, vector_audio in enumerate(vectores):
+        sim = cosine_similarity(query_vector, vector_audio)
+        heapq.heappush(heap, (-sim, ids[i]))
+
+    resultados = []
+    for _ in range(min(k, len(heap))):
+        neg_sim, audio_id = heapq.heappop(heap)
+        resultados.append((audio_id, -neg_sim))
 
     return resultados

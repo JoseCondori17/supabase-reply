@@ -1,14 +1,22 @@
-xxhash
-sqlglot[rs]
-pydub==0.25.1
+# Procesamiento de audio
+librosa==0.11.0
 audioread==3.0.1
-mutagen==1.47.0
 soundfile==0.13.1
 soxr==0.5.0.post1
-librosa==0.11.0
+mutagen==1.47.0
+pydub==0.25.1
+
+# Machine Learning
 numpy==2.2.6
 scipy==1.15.3
 scikit-learn==1.6.1
 joblib==1.5.1
+
+# Visualización y utilidades
 matplotlib==3.10.3
 tqdm==4.67.1
+pandas
+
+# sqlparser
+xxhash
+sqlglot[rs]

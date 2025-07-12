@@ -141,6 +141,7 @@ class SQLParser:
         select_dict['conditions'] = conditions
         if expr.args.get('limit'):
             select_dict['limit'] = expr.args['limit'].find(Literal).to_py()
+
         return select_dict
     
     def _parse_delete_from_table(self, expr: Expression) -> dict[str, any]:
@@ -193,6 +194,13 @@ class SQLParser:
                 'value': where_exp.find(Literal).to_py()
             }
             return condition
+        elif isinstance(where_exp, In):
+            values = [value.to_py() for value in where_exp.args['expressions']]
+            return {
+                'type': "IN", # IN (1,2,3, ...)
+                'column': where_exp.find(Identifier).this,
+                'value': values
+            }
         elif isinstance(where_exp, MatchAgainst): pass
         elif isinstance(where_exp, Distance):
             return {

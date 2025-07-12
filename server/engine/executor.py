@@ -17,9 +17,9 @@ from server.catalog.index import IndexService
 from server.storage.indexes.heap import HeapFile
 
 ## music
-from server.storage.indexes.audio import (
+from server.utils.audio import (
     obtener_recomendaciones_por_audio_mp3,
-    obtener_recomendaciones_por_song_id
+    #obtener_recomendaciones_por_song_id
 )
 
 @dataclass
@@ -127,6 +127,7 @@ class PinPom:
         params = parser['params']
         conditions = parser['conditions']
         limit = parser.get('limit')
+
         table = self.table_service.get_table(self.database_global, self.schema_global, parser['table'])
         heap_file = self.path_builder.table_data(self.database_global, self.schema_global, table.tab_name)
         heap = HeapFile(heap_file, table.tab_columns)
@@ -147,17 +148,47 @@ class PinPom:
                     filepath = conditions['value']
                     k = limit if limit else 5
                     recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "coseno")
-                    return
+                    column_primary = table.tab_columns[0]
+                    condition_in = {
+                        'type': 'IN',
+                        'column': 'id',
+                        'value': [
+                            ColumnService.to_type(column_primary.att_type_id, value, type_size=column_primary.att_len)
+                            for value in recommendations.keys()
+                        ]
+                    }
+                    result = heap.get_all_records_json(params, limit, condition_in)
+                    return result
                 elif conditions['type'] == 'MANHATAN':
                     filepath = conditions['value']
                     k = limit if limit else 5
                     recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "manhatan")
-                    return
+                    column_primary = table.tab_columns[0]
+                    condition_in = {
+                        'type': 'IN',
+                        'column': 'id',
+                        'value': [
+                            ColumnService.to_type(column_primary.att_type_id, value, type_size=column_primary.att_len)
+                            for value in recommendations.keys()
+                        ]
+                    }
+                    result = heap.get_all_records_json(params, limit, condition_in)
+                    return result
                 elif conditions['type'] == 'LINEAL':
                     filepath = conditions['value']
                     k = limit if limit else 5
-                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "lineal")
-                    return
+                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "euclidiana") # REF TO LINEAL
+                    column_primary = table.tab_columns[0]
+                    condition_in = {
+                        'type': 'IN',
+                        'column': 'id',
+                        'value': [
+                            ColumnService.to_type(column_primary.att_type_id, value, type_size=column_primary.att_len)
+                            for value in recommendations.keys()
+                        ]
+                    }
+                    result = heap.get_all_records_json(params, limit, condition_in)
+                    return result
             result = heap.get_all_records_json(params, limit, new_conditions)
             return result
         result = heap.get_all_records_json(params, limit, None)
@@ -229,6 +260,15 @@ class PinPom:
                     'column': column.att_name,
                     'low': ColumnService.to_type(column.att_type_id, condition['low'], type_size=column.att_len),
                     'high': ColumnService.to_type(column.att_type_id, condition['high'], type_size=column.att_len)
+                }
+            elif condition['type'] == "IN":
+                return {
+                    'type': condition['type'],
+                    'column': column_name,
+                    'value': [
+                        ColumnService.to_type(column.att_type_id, value, type_size=column.att_len)
+                        for value in condition['value']
+                    ]
                 }
             else:
                 return {

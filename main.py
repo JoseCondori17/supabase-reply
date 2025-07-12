@@ -83,7 +83,7 @@ user_table = """
         created_at TIMESTAMP
     );
 """
-select_all = "SELECT * FROM music LIMIT 1"
+select_all = "SELECT track_name, path_download_wav FROM music WHERE id = 1439"
 delete_from = "DELETE FROM users WHERE age < 21;"
 query_aud = """
     SELECT title, artist, lyric
@@ -99,15 +99,21 @@ copy_query = """
     DELIMITER ','
 """
 
-query_music = """
-    SELECT title, artist
+query_music_cosine = """
+    SELECT track_name, path_download_wav
     FROM music
-    WHERE path_download_wav <-> 'C:/Users/jefersson/Downloads/coldplay.mpeg'
+    WHERE path_download_wav <#> 'C:/Users/edudev/Downloads/test_audio.mp3'
     LIMIT 5;
 """
+query_in = """
+    SELECT *
+    FROM music
+    WHERE id IN (1,4,6,7)
+"""
 dbms = PinPom()
-result = dbms.execute(query_music)
-print(result)
+result = dbms.execute(query_music_cosine)[0]
+for r in result:
+    print(r)
 #print(dbms.index_service.get_indexes("university", "course", "users"))
 #print(sq._parse_create_index(sq.parse(create_index)[0]))
 #c = dbms.catalog_service.load_catalog()
