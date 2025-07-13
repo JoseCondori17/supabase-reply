@@ -36,7 +36,7 @@ class PinPomSQLDialect(Postgres):
     class Parser(VectorParser): pass
 
 @dataclass
-class SQLParser:
+class  SQLParser:
     
     def parse(self, sql: str) -> dict[str, any]:
         return parse_glot(sql, dialect=PinPomSQLDialect)
@@ -212,7 +212,7 @@ class SQLParser:
         elif isinstance(where_exp, MatchAgainst): pass
         elif isinstance(where_exp, Distance):
             return {
-                'type': "COSENO", # <-> 
+                'type': "COSENO", # <->
                 'column': where_exp.find(Identifier).this,
                 'value': where_exp.find(Literal).this
             }

@@ -1,4 +1,5 @@
 import csv
+import time
 from pathlib import Path
 from dataclasses import dataclass, field
 from sqlglot.expressions import Create, Insert, Delete, Drop, Select, Expression, Copy
@@ -19,6 +20,7 @@ from server.storage.indexes.heap import HeapFile
 ## music
 from server.utils.audio import (
     obtener_recomendaciones_por_audio_mp3,
+    obtener_recomendaciones_por_audio_wav,
     #obtener_recomendaciones_por_song_id
 )
 
@@ -39,11 +41,28 @@ class PinPom:
         self.schema_global: str = "course" #"public"
 
     def execute(self, sql: str) -> None:
-        exprs = self.sql_parser.parse(sql)
+
+        explain_mode = False
+        sql_clean = sql.strip()
+
+        if sql_clean.upper().startswith("EXPLAIN ANALYZE"):
+            explain_mode = True
+            sql_clean = sql_clean[len("EXPLAIN ANALYZE"):].strip()
+
+        exprs = self.sql_parser.parse(sql_clean)
         results = []
-        
+
         for expr in exprs:
             try:
+                operation = type(expr).__name__.upper().replace("EXPRESSION", "")
+                table_name = "unknown"
+                strategy = "Sequential Scan"
+                condition = "-"
+                algorithm = "-"
+
+                if explain_mode:
+                    start = time.perf_counter()
+
                 if isinstance(expr, Copy):
                     result = self.copy_op(expr)
                 elif isinstance(expr, Create):
@@ -51,21 +70,60 @@ class PinPom:
                 elif isinstance(expr, Drop):
                     result = self.drop_op(expr)
                 elif isinstance(expr, Select):
+                    parser = self.sql_parser._parse_select_from(expr)
+                    table_name = parser.get('table', 'unknown')
+                    condition_dict = parser.get('conditions')
+                    limit = parser.get('limit')
+
+                    if condition_dict:
+                        if condition_dict['type'] == 'COSENO':
+                            strategy = "Audio Similarity (coseno)"
+                            algorithm = 'coseno'
+                            condition = "path_download_wav <-> audio"
+                        elif condition_dict['type'] == 'MANHATAN':
+                            strategy = "Audio Similarity (manhattan)"
+                            algorithm = 'manhattan'
+                            condition = "path_download_wav <#> audio"
+                        elif condition_dict['type'] == 'LINEAL':
+                            strategy = "Audio Similarity (euclidiana)"
+                            algorithm = 'euclidiana'
+                            condition = "path_download_wav <=> audio"
+                        elif condition_dict['type'] in ['EQ', 'LT']:
+                            condition = f"{condition_dict['column']} {condition_dict['type']} {condition_dict['value']}"
+                            strategy = "Index Scan" if IndexService.call_index_by_name(
+                                self.table_service.get_table(self.database_global, self.schema_global,
+                                                             table_name).tab_indexes,
+                                condition_dict['column']
+                            ) else "Sequential Scan"
                     result = self.select_op(expr)
+                    return result
                 elif isinstance(expr, Insert):
                     result = self.insert_op(expr)
                 elif isinstance(expr, Delete):
                     result = self.delete_op(expr)
                 else:
                     raise ValueError(f"Operation not supported: {type(expr)}")
-                
-                if result is not None:
+
+                if explain_mode:
+                    end = time.perf_counter()
+                    duration_ms = round((end - start), 3)
+                    explain_result = [
+                        "[INFO] Execution Plan:",
+                        f"  • Operation: {operation}",
+                        f"  • Table: {table_name}",
+                        f"  • Condition: {condition}",
+                        f"  • Strategy: {strategy}",
+                        f"  • Algorithm: {algorithm}",
+                        f"  • Execution Time: {duration_ms} ms"
+                    ]
+                    results.append("\n".join(explain_result))
+                elif result is not None:
                     results.append(result)
-                    
+
             except Exception as e:
                 print(f"Error in building: {str(e)}")
                 continue
-                
+
         return results
 
     def drop_op(self, expr: Expression):
@@ -127,7 +185,7 @@ class PinPom:
         params = parser['params']
         conditions = parser['conditions']
         limit = parser.get('limit')
-
+        distintc = parser.get('distinct')
         table = self.table_service.get_table(self.database_global, self.schema_global, parser['table'])
         heap_file = self.path_builder.table_data(self.database_global, self.schema_global, table.tab_name)
         heap = HeapFile(heap_file, table.tab_columns)
@@ -157,7 +215,7 @@ class PinPom:
                             for value in recommendations.keys()
                         ]
                     }
-                    result = heap.get_all_records_json(params, limit, condition_in)
+                    result = heap.get_all_records_json(params, limit, distintc, condition_in)
                     return result
                 elif conditions['type'] == 'MANHATAN':
                     filepath = conditions['value']
@@ -172,7 +230,7 @@ class PinPom:
                             for value in recommendations.keys()
                         ]
                     }
-                    result = heap.get_all_records_json(params, limit, condition_in)
+                    result = heap.get_all_records_json(params, limit, distintc, condition_in)
                     return result
                 elif conditions['type'] == 'LINEAL':
                     filepath = conditions['value']
@@ -187,11 +245,11 @@ class PinPom:
                             for value in recommendations.keys()
                         ]
                     }
-                    result = heap.get_all_records_json(params, limit, condition_in)
+                    result = heap.get_all_records_json(params, limit, distintc, condition_in)
                     return result
-            result = heap.get_all_records_json(params, limit, new_conditions)
+            result = heap.get_all_records_json(params, limit, distintc, new_conditions)
             return result
-        result = heap.get_all_records_json(params, limit, None)
+        result = heap.get_all_records_json(params, limit, distintc, None)
         return result
     
     def copy_op(self, expr: Expression):

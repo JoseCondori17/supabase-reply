@@ -5,24 +5,29 @@ import json
 import pandas as pd
 import numpy as np
 from server.utils.extract_audio_functions import *
+from server.utils.scripts.subset_context import dataset_path, histogram_path
 
-dataset = "./server/utils/dataset/spotify_songs.csv"
+
+dataset = dataset_path()
 scaler = "./server/utils/scaler.joblib"
 kmeans = "./server/utils/Kmeans.joblib"
-histogram = "./server/utils/histogramas_acusticos.json"
+histogram = histogram_path()
 funciones = "./server/utils/extract_audio_functions.py"
 
 archivos = [dataset, scaler, kmeans, histogram, funciones]
 directorios = ["./audios_temp", "./audios_wav", "./dataset"]
 
 # METODOS UTILES PARA PROCESAR EL AUDIO 
+def preparar_audio_para_busqueda(path_mp3, wav_output_path="./server/utils/audios_temp/temp.wav", tiempo_recorte=30):
+    transform_mp3_to_wav(path_mp3, wav_output_path, tiempo_recorte)
+    return wav_output_path
 
 # Funciones para usar al procesar
 def extraer_mfcc_por_path(path, scaler) -> list[list[float]]:
     mfcc_test = extract_mfcc(path)
     return scaler.transform(mfcc_test)
 
-def sacar_histograma_con_id(id, json_path="./server/utils/histogramas_acusticos.json"):
+def sacar_histograma_con_id(id, json_path=None):
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -42,7 +47,7 @@ def normalizar_distancias(recomendaciones):
     ]
     return recomendaciones_normalizadas
 
-def insertar_csv(name, id, path_wav, csv_path="./dataset/spotify_songs.csv"):
+def insertar_csv(name, id, path_wav, csv_path=None):
     df = pd.read_csv(csv_path)
 
     nueva_fila = {
@@ -78,7 +83,7 @@ def max_key(json_path):
 #--------------- TEST adudio MP3 --------------
 #para poder hacer recomendacion de audio necesita path
 # para el SQL 
-def obtener_recomendaciones_por_audio_mp3(path_mp3,k=5,tipo="coseno"):
+def obtener_recomendaciones_por_audio_mp3(path_mp3,k=5,tipo=None):
     """
         recibe un path mp3 : C:/dowload/coldplay.mpeg    ->  no guarda este audio lo deja como temp.wav
 
@@ -114,6 +119,28 @@ def obtener_recomendaciones_por_audio_mp3(path_mp3,k=5,tipo="coseno"):
     recomendaciones_dict=dict(recomendaciones)
     return recomendaciones_dict
 
+
+def obtener_recomendaciones_por_audio_wav(path_wav, k=5, tipo=None):
+    scaler = cargar_objeto("./server/utils/scaler.joblib")
+    kmeans_model = cargar_objeto("./server/utils/Kmeans.joblib")
+    mfcc_normalizado = extraer_mfcc_por_path(path_wav, scaler)
+    histograma = histogram_audio(mfcc_normalizado, kmeans_model)
+
+    if tipo == "coseno":
+        recomendaciones = knn_cosine(histograma, k=k)
+    elif tipo == "manhatan":
+        recomendaciones = knn_manhattan(histograma, k=k)
+        recomendaciones = normalizar_distancias(recomendaciones)
+    elif tipo == "euclidiana":
+        recomendaciones = knn_lineal(histograma, k=k)
+        recomendaciones = normalizar_distancias(recomendaciones)
+    else:
+        print("[ERROR] Tipo de distancia no soportada.")
+        return None
+
+    return dict(recomendaciones)
+
+
 # review
 
 # -- RECOMENDACION POR ID --      (el usuario selecciona un audio del dataset y debajo le salen musicas recomendadas k=5)
@@ -145,7 +172,7 @@ def obtener_recomendaciones_por_song_id(id,tipo=None,k=5):
 
 # ---- INSERT AUDIO ---- 
 
-def insert_audio(path_mp3: str, id: str = None, json_path: str = "./server/utils/histogramas_acusticos.json"):
+def insert_audio(path_mp3: str, id: str = None, json_path: str = None):
     """
     recibe un path mp3 : C:/dowload/coldplay.mpeg 
     id : id del audio que se insertara 
@@ -170,7 +197,7 @@ def insert_audio(path_mp3: str, id: str = None, json_path: str = "./server/utils
 
     #insert histogramas
     try:
-        with open("./server/utils/histogramas_acusticos.json") as f:
+        with open(histogram_path()) as f:
             diccionario = json.load(f)
     except FileNotFoundError:
         diccionario = {}

@@ -10,6 +10,8 @@ import math
 import heapq
 from joblib import dump, load
 from collections import defaultdict
+from server.utils.scripts.subset_context import histogram_path
+
 
 def transform_mp3_to_wav(file_path_import, file_path_export,tiempo_recorte=30):
     """
@@ -184,7 +186,7 @@ def knn_lineal(query, k):
             
     """
     
-    with open("./server/utils/histogramas_acusticos.json") as f: #global
+    with open(histogram_path()) as f: #global
         codebook = json.load(f)
 
      # 2. Cola de prioridad (simulamos max-heap con -distancia)
@@ -224,7 +226,7 @@ def knn_cosine(query, k):
     Retorna los k elementos más similares al query usando similitud de coseno,
     solo con heap (sin ordenar al final).
     """
-    with open("./server/utils/histogramas_acusticos.json") as f: #global
+    with open(histogram_path()) as f: #global
         codebook = json.load(f)
 
     heap = []  # max-heap
@@ -254,7 +256,7 @@ def knn_manhattan(query, k):
     """
     Retorna los k elementos más cercanos al query usando distancia Manhattan (L1).
     """
-    with open("./server/utils/histogramas_acusticos.json") as f:
+    with open(histogram_path()) as f:
         codebook = json.load(f)
 
     heap = []  # min-heap por defecto en Python
@@ -275,7 +277,7 @@ def knn_manhattan(query, k):
 #-----------SPIMY-------
 
 def construir_indice_invertido_por_hist():
-    with open("./server/utils/histogramas_acusticos.json") as f:
+    with open(histogram_path()) as f:
         codebook = json.load(f)
     
     indice_invertido = defaultdict(set)
@@ -320,7 +322,7 @@ def knn_index_inverted(query_histograma, k):
         print("No se encontraron audios posibles")
         return []
 
-    with open("./server/utils/histogramas_acusticos.json") as f:
+    with open(histogram_path()) as f:
         data = json.load(f)
 
     # Seleccionar
