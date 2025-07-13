@@ -21,7 +21,7 @@ from server.storage.indexes.heap import HeapFile
 from server.utils.audio import (
     obtener_recomendaciones_por_audio_mp3,
     obtener_recomendaciones_por_audio_wav,
-    #obtener_recomendaciones_por_song_id
+    obtener_recomendaciones_por_song_id
 )
 
 @dataclass
@@ -292,6 +292,16 @@ class PinPom:
         self.database = db_name
     def set_schema(self, schema_name) -> None:
         self.schema = schema_name
+
+    def get_top_music(self, id: int):
+        songs = obtener_recomendaciones_por_song_id(id, tipo='manhatan',k=5)
+        key_list = ', '.join(str(k) for k in songs)
+        query = f"""
+            SELECT id, track_name, track_artist, image_url
+            FROM music
+            WHERE id IN ({key_list})
+        """
+        return self.execute(query)
 
     @classmethod
     def tranform_type_conditions(cls, condition: dict, columns: list[Column]) -> dict:

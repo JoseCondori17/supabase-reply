@@ -40,7 +40,7 @@ export default function MusicSlugPage() {
     <div className='container mx-auto flex flex-col gap-y-4 py-6'>
       <h1 className='text-2xl'>Music</h1>
       <SectionDetailsMusic {...music[0]}/>
-      <SectionRelatedTracks/>
+      <SectionRelatedTracks id={music[0]?.id ?? 1}/>
     </div>
   )
 }

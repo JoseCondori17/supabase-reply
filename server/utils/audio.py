@@ -153,7 +153,7 @@ def obtener_recomendaciones_por_song_id(id,tipo=None,k=5):
     Return:
         - dict -> key:value
     """
-    histograma=sacar_histograma_con_id(id)
+    histograma=sacar_histograma_con_id(id, histogram)
 
     if   tipo=="coseno":
         recomendaciones= knn_cosine(histograma, k=k)

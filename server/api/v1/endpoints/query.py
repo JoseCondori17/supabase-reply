@@ -23,3 +23,21 @@ async def query_sql(pp_service: PinPomDep, body: Query):
                 "error": error_msg
             }
         )
+    
+@router.post("/top/{music_id}", status_code=201)
+async def query_sql(pp_service: PinPomDep, music_id: int):
+    try:
+        result = pp_service.get_top_music(music_id)
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        error_msg = f"Error obtaining databases: {str(e)}"
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "error": error_msg
+            }
+        )
