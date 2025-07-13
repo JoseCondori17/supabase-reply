@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 
 from server.api.v1.dependencies import PinPomDep
 from server.api.v1.model.query import Query
-from server.utils.scripts.subset_context import switch_subset
 
 router = APIRouter()
 

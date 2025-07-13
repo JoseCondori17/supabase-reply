@@ -4,23 +4,47 @@ from nltk.stem import PorterStemmer """
 import string
 import struct
 
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+import string
+from collections import Counter
 from server.types.base import DataType
 
 # Descargar recursos la primera vez
-""" nltk.download('punkt')
+nltk.download('punkt')
 nltk.download('stopwords')
 
 # Recursos globales
 _stop_words = set(stopwords.words('english'))
 _stemmer = PorterStemmer()
 
+
+def count_tokens(tokens: list[str]) -> list[tuple[str, int]]:
+    counter = Counter(tokens)
+    return list(counter.items())
+
+
 def preprocess(text: str) -> list[str]:
     # Tokeniza, filtra stopwords, elimina signos y aplica stemming.
-    tokens = nltk.word_tokenize(text.lower())
+    tokens = nltk.word_tokenize(str(text).lower())
     tokens = [t for t in tokens if t not in string.punctuation]
     tokens = [t for t in tokens if t not in _stop_words]
     tokens = [_stemmer.stem(t) for t in tokens]
-    return tokens """
+    return tokens
+
+
+def preprocess_word(word: str) -> str:
+    word = word.lower()
+
+    if word in string.punctuation:
+        return ""
+
+    if word in _stop_words:
+        return ""
+
+    stemmed = _stemmer.stem(word)
+    return stemmed
 
 #print(preprocess("Hi everyone, my name is Rodri and I from Peru"))
 

@@ -74,6 +74,17 @@ class HeapFile:
                     break
         return records
 
+    def get_all_records(self) -> list[list[DataType]]:
+        records = []
+        with open(self.heap_filename, 'rb') as f:
+            while True:
+                try:
+                    row = self.get_row(f, self.columns)
+                    records.append(row)
+                except EOFError:
+                    break
+        return records
+
     def search(self, key: DataType) -> int: ...
     def search_record(self, key: DataType) -> DataType: ...
     def exist(self, key: DataType) -> bool: ...

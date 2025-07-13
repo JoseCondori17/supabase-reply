@@ -7,6 +7,7 @@ from server.catalog.catalog import CatalogService
 from server.catalog.database import DatabaseService
 from server.catalog.schema import SchemaService
 from server.catalog.table import TableService
+from server.utils.scripts.subset_context import switch_subset
 
 # singleton instance
 _pinpom_instance: PinPom | None = None
@@ -29,6 +30,11 @@ def get_schema_service(pinpom: PinPom = Depends(get_pinpom)) -> SchemaService:
 
 def get_table_service(pinpom: PinPom = Depends(get_pinpom)) -> TableService:
     return pinpom.table_service
+def switch_and_reload(subset_size: int):
+    global _pinpom_instance
+    switch_subset(subset_size)   # cambia la ruta / contexto
+    base_path = Path("data")
+    _pinpom_instance = PinPom(base_path=base_path)  # se vuelve a crear
 
 # type hints
 PinPomDep = Annotated[PinPom, Depends(get_pinpom)]

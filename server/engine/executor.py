@@ -1,5 +1,6 @@
 import csv
 import time
+import os
 from pathlib import Path
 from dataclasses import dataclass, field
 from sqlglot.expressions import Create, Insert, Delete, Drop, Select, Expression, Copy
@@ -16,6 +17,7 @@ from server.catalog.column import ColumnService, Column
 from server.catalog.index import IndexService
 
 from server.storage.indexes.heap import HeapFile
+from server.storage.indexes.Spimi import SpimiIndex
 
 ## music
 from server.utils.audio import (
@@ -53,6 +55,8 @@ class PinPom:
         results = []
 
         for expr in exprs:
+            print(expr)  # <-- agrega esto
+            print(repr(expr))  # <-- y esto
             try:
                 operation = type(expr).__name__.upper().replace("EXPRESSION", "")
                 table_name = "unknown"
@@ -170,6 +174,25 @@ class PinPom:
             return
         if expr.kind == "INDEX":
             parser = self.sql_parser._parse_create_index(expr)
+            if parser['type'] == "spimi":
+                # Construcción del índice SPIMI desde la tabla y columna indicada
+                table = self.table_service.get_table(
+                    self.database_global,
+                    self.schema_global,
+                    parser['table']
+                )
+                column_name = parser['column']
+                heap_file = self.path_builder.table_data(self.database_global, self.schema_global, parser['table'])
+                heap = HeapFile(heap_file, table.tab_columns)
+                all_records = heap.get_all_records()
+                lyrics_index = next(i for i, col in enumerate(table.tab_columns) if col.att_name == column_name)
+                lyrics_list = [record[lyrics_index].value for record in all_records]
+
+                path_save = f"C:/Users/USUARIO/PycharmProjects/supabase-reply/server/storage/indexes/spimi_indexes/{parser['table']}_{column_name}"
+                spimi = SpimiIndex(lyrics_list, path_save, inicializar_hp=True)
+
+                print(f"[INFO] SPIMI index creado y guardado en {path_save}")
+                return
             self.index_service.create_index(
                 db_name=self.database_global,
                 sch_name=self.schema_global,
@@ -190,6 +213,94 @@ class PinPom:
         heap_file = self.path_builder.table_data(self.database_global, self.schema_global, table.tab_name)
         heap = HeapFile(heap_file, table.tab_columns)
         if conditions:
+            # Caso SPIMI: buscar vecinos más cercanos con WHERE columna @@ 'texto'
+            if isinstance(conditions, dict) and conditions.get("type") in {"SPIMI_MATCH", "AND", "OR", "AND_NOT"}:
+
+                def extract_spimi_queries(cond):
+                    """
+                    Retorna la columna usada y las cadenas de texto de cada SPIMI_MATCH involucrado.
+                    También verifica que todas usen la misma columna.
+
+                    Soporta:
+                    - SPIMI_MATCH
+                    - AND
+                    - OR
+                    - AND NOT (como combinación AND con NOT a la derecha)
+                    """
+                    if cond["type"] == "SPIMI_MATCH":
+                        return cond["column"], [cond["value"]], "SPIMI_MATCH"
+
+                    elif cond["type"] == "AND":
+                        # Detectamos si el segundo operando es un NOT
+                        right = cond["right"]
+
+                        if isinstance(right, dict) and right.get("type") == "NOT":
+                            # Esto es un AND_NOT
+                            col_left, val_left, _ = extract_spimi_queries(cond["left"])
+                            col_right, val_right, _ = extract_spimi_queries(right["operand"])
+                            if col_left != col_right:
+                                raise ValueError("Todas las condiciones @@ deben usar la misma columna")
+                            return col_left, [val_left[0], val_right[0]], "AND_NOT"
+                        else:
+                            # AND normal
+                            col_left, val_left, _ = extract_spimi_queries(cond["left"])
+                            col_right, val_right, _ = extract_spimi_queries(cond["right"])
+                            if col_left != col_right:
+                                raise ValueError("Todas las condiciones @@ deben usar la misma columna")
+                            return col_left, [val_left[0], val_right[0]], "AND"
+
+                    elif cond["type"] == "OR":
+                        col_left, val_left, _ = extract_spimi_queries(cond["left"])
+                        col_right, val_right, _ = extract_spimi_queries(cond["right"])
+                        if col_left != col_right:
+                            raise ValueError("Todas las condiciones @@ deben usar la misma columna")
+                        return col_left, [val_left[0], val_right[0]], "OR"
+
+                    else:
+                        raise ValueError(f"Operación SPIMI no soportada: {cond['type']}")
+
+                column, query_list, spimi_op = extract_spimi_queries(conditions)
+
+                path_spimi = f"C:/Users/USUARIO/PycharmProjects/supabase-reply/server/storage/indexes/spimi_indexes/{table.tab_name}_{column}"
+                if not os.path.exists(path_spimi):
+                    raise FileNotFoundError(f"[ERROR] SPIMI index file not found in {path_spimi}")
+
+                spimi = SpimiIndex([], path_spimi, inicializar_hp=False)
+                k = limit if limit else 5
+                if spimi_op == "SPIMI_MATCH":
+                    vecinos = spimi.query_knn(query_list[0], k=k)
+                elif spimi_op == "AND":
+                    vecinos = spimi.AND(query_list[0], query_list[1])
+                elif spimi_op == "OR":
+                    vecinos = spimi.OR(query_list[0], query_list[1])
+                elif spimi_op == "AND_NOT":
+                    vecinos = spimi.AND_NOT(query_list[0], query_list[1])
+                else:
+                    raise ValueError("Operador SPIMI no implementado")
+
+                print(vecinos)
+                print("")
+
+                # Filtrar por ID
+                column_primary = table.tab_columns[0]
+                ids = []
+                for v in vecinos:
+                    if isinstance(v, (list, tuple)):
+                        doc_id = v[0]  # (id, score)
+                    else:
+                        doc_id = v  # sólo id
+                    ids.append(
+                        ColumnService.to_type(column_primary.att_type_id, doc_id, type_size=column_primary.att_len)
+                    )
+
+                condition_in = {
+                    'type': 'IN',
+                    'column': 'id',
+                    'value': ids
+                }
+
+                result = heap.get_all_records_json(params, limit, distintc, condition_in)
+                return result
             new_conditions = self.tranform_type_conditions(conditions, table.tab_columns)
             index = IndexService.call_index_by_name(table.tab_indexes, new_conditions['column'])
             if index:
@@ -205,7 +316,7 @@ class PinPom:
                 if conditions['type'] == 'COSENO':
                     filepath = conditions['value']
                     k = limit if limit else 5
-                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "coseno")
+                    recommendations = obtener_recomendaciones_por_audio_wav(filepath, k, "coseno")
                     column_primary = table.tab_columns[0]
                     condition_in = {
                         'type': 'IN',
@@ -220,7 +331,7 @@ class PinPom:
                 elif conditions['type'] == 'MANHATAN':
                     filepath = conditions['value']
                     k = limit if limit else 5
-                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "manhatan")
+                    recommendations = obtener_recomendaciones_por_audio_wav(filepath, k, "manhatan")
                     column_primary = table.tab_columns[0]
                     condition_in = {
                         'type': 'IN',
@@ -235,7 +346,7 @@ class PinPom:
                 elif conditions['type'] == 'LINEAL':
                     filepath = conditions['value']
                     k = limit if limit else 5
-                    recommendations = obtener_recomendaciones_por_audio_mp3(filepath, k, "euclidiana") # REF TO LINEAL
+                    recommendations = obtener_recomendaciones_por_audio_wav(filepath, k, "euclidiana") # REF TO LINEAL
                     column_primary = table.tab_columns[0]
                     condition_in = {
                         'type': 'IN',

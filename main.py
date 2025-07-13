@@ -160,12 +160,7 @@ user_table = """
 """
 select_all = "SELECT track_name, path_download_wav FROM music WHERE id = 1439"
 delete_from = "DELETE FROM users WHERE age < 21;"
-query_aud = """
-    SELECT title, artist, lyric
-    FROM Audio
-    WHERE lyric @@ 'amor en tiempos de guerra'
-    LIMIT 10;
-"""
+
 #print(s.parse(query_aud)[0].args)
 #print(s._parse_select_from(s.parse(query_aud)[0]))
 copy_query = """
@@ -189,11 +184,10 @@ copy_query = """
     FROM 'C:/Users/USUARIO/PycharmProjects/supabase-reply/server/utils/dataset/spotify_songs_2000.csv'
     DELIMITER ',';
 """
-ruta_wav_query = preparar_audio_para_busqueda("D:/USUARIO/Downloads/test_audio.mpeg")
 query_music_cosine = """
     SELECT track_name, path_download_wav
-    FROM music_10
-    WHERE path_download_wav <-> 'D:/USUARIO/Downloads/test_audio.mpeg'
+    FROM music_2000
+    WHERE path_download_wav <#> 'D:/USUARIO/Downloads/test_audio.mpeg'
     LIMIT 8;
 """
 query_in = """
@@ -201,11 +195,20 @@ query_in = """
     FROM music
     WHERE id IN (1,4,6,7)
 """
+query_aud = """
+    EXPLAIN ANALYZE
+    SELECT id, track_name, lyrics
+    FROM music_2000
+    WHERE lyrics @@ 'dance baby love' AND NOT lyrics @@ 'dance all night'
+    LIMIT 5;
+"""
 
+create_aud_index = """
+    CREATE INDEX idx_lyrics ON music_2000 USING spimi(lyrics);
+"""
 
 dbms = PinPom()
-switch_subset(10)
-result = dbms.execute(query_music_cosine)
+result = dbms.execute(query_aud)
 for r in result:
     print(r)
 
