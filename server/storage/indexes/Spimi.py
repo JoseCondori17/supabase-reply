@@ -1,171 +1,85 @@
+import math
+import sys
+
 import numpy as np
 import os
-import math
+import pandas as pd
+import pickle
+from server.types.text import preprocess, preprocess_word, count_tokens
+from collections import defaultdict
+import shutil
 
-from server.types.text import preprocess
-
-
-class BlockSpimi:
-
-    # tam_block: # de docId's en total que tiene cada bloque.
-    # tam_posting_list: # de docId's anclados a un posting list de un token.
-
-    def __init__(self, tam_block=10, tam_posting_list=5):
-        self.tam_block = tam_block
-        self.tam_posting_list = tam_posting_list
-        self.actual_size_block = 0
-        self.posting_list = {}
-
-    def get_posting_list_by_token(self, token):
-        return self.posting_list[token]
-
-    def UpdateLinkedList(self, token, LinkedList):
-        self.posting_list[token] = LinkedList
-
-    def insert_docId(self, token, docId):
-        self.posting_list[token].insert_docId(docId)
-        self.actual_size_block += 1
-
-    def is_full(self):
-        return self.tam_block == self.actual_size_block
-
-    def in_dict(self, key):
-        return key in self.posting_list
-
-    def add_posting_list(self, token):
-        self.posting_list[token] = LinkedPostingList(token, self.tam_posting_list)
-
-    def sort_dict_tokens(self):
-        # dict.items() retorna una lista de tuplas del diccionario.
-        self.posting_list = dict(sorted(self.posting_list.items()))
-
-    def is_empty(self):
-        return len(self.posting_list)
-
-    def ConcatenatePostingList(self, token, posting_list):
-        self.posting_list[token].ConcatenateLinkedList(posting_list)
+from server.storage.indexes.spimi_utils.BlockSpimi import BlockSpimi, FinallyMerge, binary_search_block_index, copiar_contenido
+from server.storage.indexes.spimi_utils.LinkedPostingList import LinkedPostingList
+from server.storage.indexes.spimi_utils.DocTf import DocTf
 
 
-class LinkedPostingList:
+# pct_block <- que tan alejado quiero que esté mi memoria disponible con respecto a la memoría mínima
+# ocupada por un bloque
 
-    def __init__(self, name_token, tam_posting_list=5, ListPointListInit=None):
-        self.tam_posting_list = tam_posting_list
-        self.ListPostingList = [[]] if ListPointListInit is None else ListPointListInit
-        self.actual_pos_extract = 0
-        self.name_token = name_token
+# pct_pg <- tam_block * pct_pg.
+def inicializar_hiperparametros_spimi(doc_list, pct_pg=0.1):
+    num_caracters = int(np.sum([len(preprocess(doc)) for doc in doc_list]))
+    tam_block = max(15, 0.1 * (num_caracters + 1) ** 0.6)
+    tam_posting_list = math.floor(tam_block * pct_pg)
 
-    def insert_docId(self, DocId):
-        self.ListPostingList[-1].append(DocId)
-
-    def last_posting_list(self):
-        return self.ListPostingList[-1]
-
-    # Booleano para controlar si es que se pudo crear un bloque.
-    def add_posting_linked(self):
-        self.ListPostingList.append([])
-
-    def is_full(self):
-        return len(self.ListPostingList[-1]) == self.tam_posting_list
-
-    def get_list_block(self):
-        return self.ListPostingList
-
-    def get_all_size(self):
-
-        # más de un posting list enlazado
-        if len(self.ListPostingList) >= 2:
-            canti = self.tam_posting_list * (len(self.ListPostingList) - 1)
-            return canti + len(self.ListPostingList[-1])
-
-        # solo un posting list
-        else:
-            return len(self.ListPostingList[-1])
-
-    # Extrae en el rango [idx, n].
-
-    # extrae num_extract DocId's de los posting list anclados al token
-    # La posición actual de la extracción se guarda en self.actual_pos_extract
-    def Extract_Posting_List_By_Index(self, num_extract):
-
-        idx_pl = self.actual_pos_extract // self.tam_posting_list
-        actual_posi = self.actual_pos_extract % self.tam_posting_list
-
-        LinkedListIdDocs = []
-        ListIdDocs = []
-
-        actual_num_extract = 0
-
-        while actual_num_extract < num_extract:
-
-            if idx_pl >= len(self.ListPostingList):
-                raise ValueError("No debería entrar acá.")
-
-            posting_list = self.ListPostingList[idx_pl]
-            for pos_doc in range(actual_posi, len(posting_list)):
-
-                if actual_num_extract >= num_extract:
-                    break
-
-                ListIdDocs.append(posting_list[pos_doc])
-
-                if len(ListIdDocs) == self.tam_posting_list:
-                    LinkedListIdDocs.append(ListIdDocs)
-                    ListIdDocs = []
-
-                self.actual_pos_extract += 1
-                actual_num_extract += 1
-
-            idx_pl += 1
-            actual_posi = 0
-
-        if ListIdDocs:
-            LinkedListIdDocs.append(ListIdDocs)
-
-        return LinkedListIdDocs
-
-    def num_extract_actually(self):
-        return self.actual_pos_extract + 1
-
-    def CanExtract(self):
-        return self.actual_pos_extract < self.get_all_size()
-
-    def ConcatenateLinkedList(self, LinkedList):
-        if not self.ListPostingList:
-            self.ListPostingList = [block[:] for block in LinkedList]
-            return
-
-        for block in LinkedList:
-            for doc_id in block:
-                if self.is_full():
-                    self.ListPostingList.append([])
-                self.ListPostingList[-1].append(doc_id)
+    return math.floor(tam_block), tam_posting_list
 
 
 class SpimiIndex:
 
-    def __init__(self, DocList, tam_block=10, tam_posting_list=5):
+    def __init__(self, DocList, path_save, inicializar_hp=True, tam_block=10, tam_posting_list=5):
+
+        self.path_save = path_save
+        self.path_save_temporal = self.path_save + "_temporal"
 
         self.DocList = DocList
-        self.tam_block = tam_block
-        self.tam_posting_list = tam_posting_list
 
-        # Lista de bloques creados
-        self.ListBlock = []
+        if inicializar_hp:
+            self.tam_block, self.tam_posting_list = inicializar_hiperparametros_spimi(DocList)
+        else:
+            self.tam_block = tam_block
+            self.tam_posting_list = tam_posting_list
 
-        # Se va a encargar de controlar la posición actual del token_stream que se quedo un Doc
-        # cuando se lleno un bloque.
         self.idx = 0
+        self.num_blocks = 0
+        self.df = {}
+        self.length = {}
 
-        self.BuildSpimi()
+        if not os.path.exists(self.path_save):
+
+            os.makedirs(self.path_save)
+            os.makedirs(self.path_save_temporal)
+
+            print("Construyendo el Spimi...")
+            self.BuildSpimi()
+
+            shutil.rmtree(self.path_save_temporal)
+
+            with open(os.path.join(self.path_save, "df"), "wb") as f:
+                pickle.dump(self.df, f)
+
+            with open(os.path.join(self.path_save, "length"), "wb") as f:
+                pickle.dump(self.length, f)
+
+            print("Listo!")
+
+        else:
+
+            print("Extrayendo SpimiBlocks desde Binario...")
+            self.LoadSpimiBlocks()
+            self.num_blocks = len(os.listdir(self.path_save)) - 2
+
+            # self.__call__()
+            # print(self.)
+
+            print("Listo!")
 
     def BuildSpimi(self):
 
         n = 0
-
-        # Para evitar el recálculo de los tokens cuando se llena un bloque
         save_parse_tokens = []
 
-        # mi profe de software estaría orgulloso
         is_full_block_but_not_posting_list = False
 
         while n < len(self.DocList):
@@ -177,34 +91,38 @@ class SpimiIndex:
                 if not is_full_block_but_not_posting_list:
                     token_stream = preprocess(self.DocList[n])
 
-                    # Todos esos tokens le pertenecen al doc número n.
                     token_and_docId = [[token, docId] for token, docId in
                                        zip(token_stream, [n] * len(token_stream))]
+
+                    _, counts = np.unique(token_stream, return_counts=True)
+                    self.length[n] = np.sqrt(np.sum(np.pow(counts, 2)))
+
                 else:
                     token_and_docId = save_parse_tokens
 
                 self.BuildBlock(Block, token_and_docId)
 
-                # Significa que acabo de leer el documento actual o no tenía contenido.
                 if self.idx == 0:
                     n += 1
                     is_full_block_but_not_posting_list = False
 
-                # Esto indica que aún no se acabo de leer el documento pero se lleno el bloque.
                 else:
 
-                    # Caso esquinaaaa
                     if not Block.is_full():
                         save_parse_tokens = token_and_docId
                         is_full_block_but_not_posting_list = True
                     else:
                         is_full_block_but_not_posting_list = False
 
-            # Posible caso esquina, entra un bloque vacio.
             if not Block.is_empty():
-                self.ListBlock.append(Block)
+                Block.sort_dict_tokens()
 
-        # Algoritmo de merge de los bloques...
+                # Escribiendo el bloque en binario.
+                with open(os.path.join(self.path_save, f"Block_{self.num_blocks}"), "wb") as f:
+                    pickle.dump(Block, f)
+
+                self.num_blocks += 1
+
         self.MergeBlocksSpimi()
 
     def BuildBlock(self, Block: BlockSpimi, token_and_docId):
@@ -222,32 +140,23 @@ class SpimiIndex:
             if posting_list.is_full():
                 posting_list.add_posting_linked()
 
-            # posting_list.insert_docId(docId)
-
-            # Para que se llene el size del bloque, igualmente hará las operaciones de los
-            # postings del token.
             Block.insert_docId(token, docId)
+
+            if token not in self.df:
+                self.df[token] = []
+
+            if docId not in self.df[token]:
+                self.df[token].append(docId)
 
             self.idx += 1
 
-        # Posible caso esquina, si es que manejo ambos por separado.
-        if len(token_and_docId) == self.idx and Block.is_full():
-            self.idx = 0
-            Block.sort_dict_tokens()
-
-        # Para que avance en el siguiente registro desde esta posición.
-        elif len(token_and_docId) == self.idx:
+        if len(token_and_docId) == self.idx:
             self.idx = 0
 
-        else:
-            Block.sort_dict_tokens()
+    def MergeBlocks(self, G1, G2, actual_block_write):
 
-    def MergeBlocks(self, G1, G2):
-
-        G1size = 0
-        G2size = 0
-
-        GMerge = []
+        G1size = G1[0]
+        G2size = G2[0]
 
         block_merge = BlockSpimi(self.tam_block, self.tam_posting_list)
         tam_block_merge = 0
@@ -255,11 +164,21 @@ class SpimiIndex:
         idx1 = 0
         idx2 = 0
 
-        # Esto para controlar el orden de los bloques.
-        while G1size < len(G1) and G2size < len(G2):
+        isG1full: bool = True
+        isG2full: bool = True
 
-            block_g1: BlockSpimi = G1[G1size]
-            block_g2: BlockSpimi = G2[G2size]
+        block_g1 = None
+        block_g2 = None
+
+        while G1size <= G1[1] and G2size <= G2[1]:
+
+            if isG1full:
+                with open(os.path.join(self.path_save, f"Block_{G1size}"), "rb") as f:
+                    block_g1 = pickle.load(f)
+
+            if isG2full:
+                with open(os.path.join(self.path_save, f"Block_{G2size}"), "rb") as f:
+                    block_g2 = pickle.load(f)
 
             pl_g1 = block_g1.posting_list
             pl_g2 = block_g2.posting_list
@@ -269,6 +188,7 @@ class SpimiIndex:
             tokens_g2 = list(pl_g2.keys())
 
             while idx1 < len(tokens_g1) and idx2 < len(tokens_g2):
+
                 if tokens_g1[idx1] > tokens_g2[idx2]:
 
                     token = tokens_g2[idx2]
@@ -279,14 +199,16 @@ class SpimiIndex:
                     espacio = self.tam_block - tam_block_merge
                     num_extract = min(size - actually_extract, espacio)
 
-                    tam_block_merge += num_extract
-                    docs = linked.Extract_Posting_List_By_Index(num_extract)
-                    new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs)
-                    block_merge.ConcatenatePostingList(token, new_linked)
+                    if num_extract != 0:
+                        docs = linked.Extract_Posting_List_By_Index(num_extract)
+
+                        tam_block_merge += num_extract
+
+                        new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs)
+                        block_merge.ConcatenatePostingList(token, new_linked)
 
                     if not linked.CanExtract():
                         idx2 += 1
-
                 elif tokens_g1[idx1] < tokens_g2[idx2]:
 
                     token = tokens_g1[idx1]
@@ -295,18 +217,20 @@ class SpimiIndex:
                     actually_extract = linked.num_extract_actually()
                     size = linked.get_all_size()
                     espacio = self.tam_block - tam_block_merge
+
                     num_extract = min(size - actually_extract, espacio)
 
-                    tam_block_merge += num_extract
-                    docs = linked.Extract_Posting_List_By_Index(num_extract)
-                    new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs)
-                    block_merge.ConcatenatePostingList(token, new_linked)
+                    if num_extract != 0:
+                        docs = linked.Extract_Posting_List_By_Index(num_extract)
+                        tam_block_merge += num_extract
+
+                        new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs)
+                        block_merge.ConcatenatePostingList(token, new_linked)
 
                     if not linked.CanExtract():
                         idx1 += 1
-
-                # Caso esquina, si son iguales pues evitamos que se sobre escriba la solución anterior.
                 else:
+                    # Caso esquina, si son iguales pues evitamos que se sobre escriba la solución anterior.
 
                     # Token compartido en ambos
                     token = tokens_g1[idx1]
@@ -315,69 +239,262 @@ class SpimiIndex:
 
                     actually_extract_1 = linked1.num_extract_actually()
                     actually_extract_2 = linked2.num_extract_actually()
-                    size_total = linked1.get_all_size() + linked2.get_all_size()
 
                     espacio = self.tam_block - tam_block_merge
-
                     min_extract = min(actually_extract_1, actually_extract_2)
-                    num_extract = min(size_total - min_extract, espacio)
-
-                    tam_block_merge += num_extract
 
                     if min_extract == actually_extract_1:
 
-                        docs1 = linked1.Extract_Posting_List_By_Index(num_extract)
-                        new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs1)
-                        block_merge.ConcatenatePostingList(token, new_linked)
+                        num_extract = min(linked1.get_all_size() - min_extract, espacio)
+
+                        if num_extract != 0:
+                            docs1 = linked1.Extract_Posting_List_By_Index(num_extract)
+                            tam_block_merge += num_extract
+
+                            new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs1)
+                            block_merge.ConcatenatePostingList(token, new_linked)
 
                     else:
 
-                        docs2 = linked2.Extract_Posting_List_By_Index(num_extract)
-                        new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs2)
-                        block_merge.ConcatenatePostingList(token, new_linked)
+                        num_extract = min(linked2.get_all_size() - min_extract, espacio)
+
+                        if num_extract != 0:
+                            docs2 = linked2.Extract_Posting_List_By_Index(num_extract)
+                            tam_block_merge += num_extract
+
+                            new_linked = LinkedPostingList(token, self.tam_posting_list, ListPointListInit=docs2)
+                            block_merge.ConcatenatePostingList(token, new_linked)
 
                     if min_extract == actually_extract_1 and not linked1.CanExtract():
                         idx1 += 1
+
                     if min_extract == actually_extract_2 and not linked2.CanExtract():
                         idx2 += 1
 
                 if tam_block_merge == self.tam_block:
                     tam_block_merge = 0
-                    GMerge.append(block_merge)
-                    block_merge = BlockSpimi(self.tam_block, self.tam_posting_list)
+
+                    with open(os.path.join(self.path_save_temporal, f"Block_{actual_block_write}"), "wb") as f:
+                        pickle.dump(block_merge, f)
+
+                    block_merge.clear()
+                    actual_block_write += 1
 
             if idx1 == len(tokens_g1):
                 idx1 = 0
                 G1size += 1
+                isG1full = True
+                isG2full = False
             else:
                 idx2 = 0
                 G2size += 1
+                isG1full = False
+                isG2full = True
+
+        actual_block_write = FinallyMerge(self, G1size, G1, block_g1, idx1, actual_block_write,
+                                          block_merge, tam_block_merge)
+        actual_block_write = FinallyMerge(self, G2size, G2, block_g2, idx2, actual_block_write,
+                                          block_merge, tam_block_merge)
 
         if not block_merge.is_empty():
-            GMerge.append(block_merge)
+            with open(os.path.join(self.path_save_temporal, f"Block_{actual_block_write}"), "wb") as f:
+                pickle.dump(block_merge, f)
+            actual_block_write += 1
 
-        for i in range(G1size, len(G1)):
-            GMerge.append(G1[i])
-        for i in range(G2size, len(G2)):
-            GMerge.append(G2[i])
-
-        return GMerge
+        return actual_block_write
 
     def MergeBlocksSpimi(self, nivel=1):
 
         groups = pow(2, nivel)
-        n = len(self.ListBlock)
+        n = self.num_blocks
         mid = groups // 2
+        actual_block_write = 0
+
+        count_before_merge = self.spimi_size()
 
         for i in range(0, n, groups):
+            start1 = i
+            end1 = min(i + mid - 1, n - 1)
+            start2 = i + mid
+            end2 = min(i + groups - 1, n - 1)
 
-            G1 = self.ListBlock[i: i + mid]
-            G2 = self.ListBlock[i + mid: min(i + groups, n)]
+            G1 = (start1, end1)
+            G2 = (start2, end2)
+            actual_block_write = self.MergeBlocks(G1, G2, actual_block_write)
 
-            GMerge = self.MergeBlocks(G1, G2)
+        if actual_block_write != n:
+            raise ValueError("[ERROR] Cantidad erronea de bloques escritos!")
 
-            # Puede que este mal esto...
-            self.ListBlock[i: i + len(G1) + len(G2)] = GMerge[:]
+        copiar_contenido(self.path_save_temporal, self.path_save)
 
-        if groups * 2 < n:
+        count_after_merge = self.spimi_size()
+        if count_before_merge != count_after_merge:
+            raise ValueError("[ERROR] Cantidad erronea de elementos after merge!")
+
+        print("q fue")
+        if groups < n:
             self.MergeBlocksSpimi(nivel + 1)
+
+    def LoadSpimiBlocks(self):
+        write_df = self.path_save + "/df"
+
+        with open(write_df, "rb") as f:
+            load_df = pickle.load(f)
+            self.df = load_df
+
+        write_length = self.path_save + "/length"
+        with open(write_length, "rb") as f:
+            load_length = pickle.load(f)
+            self.length = load_length
+
+    def test(self):
+
+        for i in range(self.num_blocks):
+            path = os.path.join(self.path_save, f"Block_{i}")
+            with open(path, "rb") as f:
+                block: BlockSpimi = pickle.load(f)
+
+            print(f"\n=== Bloque {i} ===")
+            for tk, p_l in block.posting_list.items():
+                print(f"Token: {tk}")
+                print(f"Posting Linked List:")
+                p_l()
+                print("\n")
+
+    def spimi_size(self):
+
+        count = 0
+
+        for i in range(self.num_blocks):
+            path = os.path.join(self.path_save, f"Block_{i}")
+            with open(path, "rb") as f:
+                block: BlockSpimi = pickle.load(f)
+
+            count += block.CountSizeBlock()
+
+        return count
+
+    def docListByWord(self, word, getdocsid=True):
+
+        word = preprocess_word(word)
+
+        min_pos = binary_search_block_index(self, word, find_left=True)
+        max_pos = binary_search_block_index(self, word, find_left=False)
+        result = []
+        for pos_block in range(min_pos, max_pos + 1):
+            with open(os.path.join(self.path_save, f"Block_{pos_block}"), "rb") as f:
+                block: BlockSpimi = pickle.load(f)
+
+            min_token = block.get_first_token()
+            max_token = block.get_last_token()
+
+            if min_token <= word <= max_token:
+                if block.in_dict(word):
+                    pl = block.get_posting_list_by_token(word)
+                    pl_flatten = pl.flattenDocID() if getdocsid else pl.flattenDocTF()
+                    result.extend(pl_flatten)
+
+        return sorted(set(result)) if getdocsid else result
+
+    def AND(self, query1: str, query2: str):
+        tokens1 = preprocess(query1)
+        tokens2 = preprocess(query2)
+        docs1 = set()
+        for token in tokens1:
+            docs1.update(self.docListByWord(token))
+
+        docs2 = set()
+        for token in tokens2:
+            docs2.update(self.docListByWord(token))
+        return sorted(docs1 & docs2)
+
+    def OR(self, query1: str, query2: str):
+        tokens1 = preprocess(query1)
+        tokens2 = preprocess(query2)
+
+        docs = set()
+        for token in tokens1 + tokens2:
+            docs.update(self.docListByWord(token))
+
+        return sorted(docs)
+
+    def AND_NOT(self, query1: str, query2: str):
+        tokens1 = preprocess(query1)
+        tokens2 = preprocess(query2)
+
+        docs1 = set()
+        for token in tokens1:
+            docs1.update(self.docListByWord(token))
+
+        docs2 = set()
+        for token in tokens2:
+            docs2.update(self.docListByWord(token))
+
+        return sorted(docs1 - docs2)
+
+    def query_knn(self, query, k=5):
+
+        Querytf = count_tokens(preprocess(query))
+        Scores = defaultdict(float)
+        total_docs = len(self.length)
+
+        print(Querytf)
+        for idx, (wordQ, tf) in enumerate(Querytf):
+            tfQ = 1 + np.log10(tf)
+            DocTFDict = self.docListByWord(wordQ, getdocsid=False)
+            if DocTFDict:
+                df = len(self.df[wordQ])
+                idf = np.log10(total_docs / df)
+
+                for DocTF in DocTFDict:
+                    DocId = DocTF.docId
+                    tfD = DocTF.tf
+                    tfidf_product = (idf ** 2) * tfQ * tfD
+                    Scores[DocId] += tfidf_product
+        for DocId in Scores.keys():
+            Scores[DocId] /= self.length[DocId]
+
+        result = sorted(Scores.items(), key=lambda tup: tup[1], reverse=True)
+        result = [(r_tuple[0] + 1, r_tuple[1]) for r_tuple in result[:k]]
+        return result[:k]
+
+
+if __name__ == "__main__":
+    csv = pd.read_csv("C:/Users/USUARIO/PycharmProjects/supabase-reply/server/utils/dataset/spotify_songs_10.csv")
+
+    lyrics2 = list(csv["lyrics"])
+
+
+    lyrics = [
+        "love me love you love again",
+        "baby baby I love you baby",
+        "yeah yeah yeah love yeah yeah",
+        "no no no love no no no",
+        "fire fire burning baby love",
+        "cry baby cry no one knows",
+        "run baby run fast love run",
+        "love yeah dance yeah love yeah",
+        "baby fire dance fire fire baby",
+        "cry cry love cry yeah love",
+        "dance baby love dance all night",
+        "fire yeah run fire no run",
+        "yeah baby yeah yeah yeah love",
+        "run love run baby run again",
+        "no more love no more pain",
+        "cry out loud cry cry baby",
+        "fire in love fire in heart",
+        "love baby cry baby love fire",
+        "yeah dance baby yeah dance yeah",
+        "no love no fire no cry"
+    ]
+
+
+    print("Construccion SPIMI:")
+    # Crear el índice
+
+    path_save = "./SpimiBlocks2"
+    spimi = SpimiIndex(lyrics2, path_save, inicializar_hp=True)
+
+    knn = spimi.AND_NOT("dance baby love", "dance all night")
+    print(knn)
+

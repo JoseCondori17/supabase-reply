@@ -19,6 +19,7 @@ class VectorTokenizer(Tokenizer):
         **Tokenizer.KEYWORDS,
         "<#>": TokenType.AT_GT,  # <#>
         "<=>": TokenType.HASH_ARROW,  # <=>
+        "@@": TokenType.DARROW,       # Agregado: MATCH operator
     }
 
 # extend parser
@@ -28,6 +29,10 @@ class VectorParser(Parser):
             return self.expression(EQ, expression=self._parse_bitwise(), op='<#>')
         if self._match(TokenType.HASH_ARROW):  # <=> Coseno
             return self.expression(EQ, expression=self._parse_bitwise(), op='<=>')
+        if self._match(TokenType.DARROW):  # detectamos @@
+            left = self._prev  # columna a la izquierda
+            right = self._parse_bitwise()  # cadena de la derecha
+            return self.expression(MatchAgainst,this=left,expression=right, op = '@@')
         return super()._parse_comparison()
 
 # new dialect
@@ -209,7 +214,49 @@ class  SQLParser:
                 'column': where_exp.find(Identifier).this,
                 'value': values
             }
-        elif isinstance(where_exp, MatchAgainst): pass
+        elif isinstance(where_exp, Not):
+            return {
+                "type": "NOT",
+                "operand": cls.parse_condition(where_exp.this)
+            }
+
+        elif isinstance(where_exp, And):
+            return {
+                "type": "AND",
+                "left": cls.parse_condition(where_exp.left),
+                "right": cls.parse_condition(where_exp.right)
+            }
+
+        elif isinstance(where_exp, Or):
+            return {
+                "type": "OR",
+                "left": cls.parse_condition(where_exp.left),
+                "right": cls.parse_condition(where_exp.right)
+            }
+        elif isinstance(where_exp, JSONExtractScalar):
+            json_path = where_exp.args.get("expression")
+            query_string = None
+            if json_path and hasattr(json_path, "expressions"):
+                for part in json_path.expressions:
+                    if isinstance(part, JSONPathKey):
+                        query_string = part.this  # o part.name, depende de tu versión de sqlglot
+            return {
+                "type": "SPIMI_MATCH",
+                "column": where_exp.find(Identifier).this,
+                "value": query_string
+            }
+
+        elif isinstance(where_exp, MatchAgainst):
+            # nombre de la columna
+            col = where_exp.this.this if hasattr(where_exp.this, "this") else where_exp.this
+            # cadena a buscar
+            lit = where_exp.expression.find(Literal)
+            val = lit.this if lit else where_exp.expression.to_sql()
+            return {
+                "type": "SPIMI_MATCH",
+                "column": col,
+                "value": val
+            }
         elif isinstance(where_exp, Distance):
             return {
                 'type': "COSENO", # <->
