@@ -1,7 +1,8 @@
 'use client'
+import { LoaderCircle } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CardPreviewMusic } from "../common/card-preview";
-import Link from "next/link";
 import { Button } from "../ui/button";
 
 export function SectionPreviewMusic() {
@@ -21,7 +22,7 @@ export function SectionPreviewMusic() {
         if (result.success) {
           setMusics(result.data);
         } else {
-          console.error("Error fetching genres:", result);
+          console.error("Error fetching preview music:", result);
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -36,14 +37,18 @@ export function SectionPreviewMusic() {
   return (
     <div className="container mx-auto px-24 py-6 flex flex-col gap-y-8 select-none">
       <div className="flex items-center gap-x-6">
-        <h2 className="text-2xl align-top">Music</h2>
+        <h2 className="text-2xl align-top">Canciones</h2>
         <Button size='sm' variant='outline' asChild>
-          <Link href={'/music'}>View all</Link>
+          <Link href={'/music'}>Ver más</Link>
         </Button>
       </div>
 
+      {loading &&
+        <div className="flex-1 flex items-center justify-center">
+          <LoaderCircle className="w-5 h-5 animate-spin text-gray-500" />
+        </div>
+      }
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {loading && <p>Loading...</p>}
         {!loading && music.map((item, idx) => (
           <CardPreviewMusic
             key={idx}
