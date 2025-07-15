@@ -18,12 +18,26 @@ from server.storage.indexes.spimi_utils.DocTf import DocTf
 # ocupada por un bloque
 
 # pct_pg <- tam_block * pct_pg.
-def inicializar_hiperparametros_spimi(doc_list, pct_pg=0.1):
-    num_caracters = int(np.sum([len(preprocess(doc)) for doc in doc_list]))
-    tam_block = max(15, 0.1 * (num_caracters + 1) ** 0.6)
-    tam_posting_list = math.floor(tam_block * pct_pg)
+def inicializar_hiperparametros_spimi(doc_list, pct_pg=0.4):
+    if not (0 < pct_pg <= 1):
+        raise ValueError("El valor de pct_pg debe estar en el rango (0, 1]")
 
-    return math.floor(tam_block), tam_posting_list
+    token_docIDs = defaultdict(set)
+    total_tokens = 0
+
+    for doc_id, doc in enumerate(doc_list):
+        tokens = preprocess(doc)
+        total_tokens += len(tokens)
+        for token in set(tokens):
+            token_docIDs[token].add(doc_id)
+
+    tam_block = max(15, 0.1 * (total_tokens + 1) ** 0.6)
+
+    df_list = [len(docIDs) for docIDs in token_docIDs.values()]
+    df_prom = np.mean(df_list)
+    tam_posting_list = max(2.0, pct_pg * df_prom)
+
+    return math.floor(tam_block), math.ceil(tam_posting_list)
 
 
 class SpimiIndex:
@@ -399,6 +413,7 @@ class SpimiIndex:
     def AND(self, query1: str, query2: str):
         tokens1 = preprocess(query1)
         tokens2 = preprocess(query2)
+
         docs1 = set()
         for token in tokens1:
             docs1.update(self.docListByWord(token))
@@ -406,6 +421,7 @@ class SpimiIndex:
         docs2 = set()
         for token in tokens2:
             docs2.update(self.docListByWord(token))
+
         return sorted(docs1 & docs2)
 
     def OR(self, query1: str, query2: str):
@@ -494,7 +510,7 @@ if __name__ == "__main__":
 
     path_save = "./SpimiBlocks2"
     spimi = SpimiIndex(lyrics2, path_save, inicializar_hp=True)
-
-    knn = spimi.AND_NOT("dance baby love", "dance all night")
+    print("Construido...")
+    knn = spimi.query_knn('dance baby love dance all night', 10)
     print(knn)
 
