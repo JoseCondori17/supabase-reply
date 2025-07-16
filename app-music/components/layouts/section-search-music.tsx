@@ -15,7 +15,7 @@ export function SectionSearchMusic({ query }: { query: string }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: `SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ '${query}' LIMIT 10;` }),
         });
-        console.log(`SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ '${query.replace("'", "")}'`);
+        console.log(`SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ '${query.replaceAll("'", "")}'`);
         const result = await response.json();
         if (result.success) {
           setMusics(result.data);
