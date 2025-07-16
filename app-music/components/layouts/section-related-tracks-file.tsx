@@ -1,11 +1,15 @@
 'use client'
-import { useEffect, useState } from "react";
-import { CardPreviewMusic } from "@/components/common/card-preview";
+import { useFileStore } from "@/store/file-store";
 import { LoaderCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CardPreviewMusic } from "../common/card-preview";
+import { Button } from "../ui/button";
 
-export default function MusicPage() {
+
+export function SectionRelatedTracksFile({ filepath }: { filepath: string }) {
   const [music, setMusics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { setFileServer } = useFileStore();
 
   useEffect(() => {
     async function fetchMusics() {
@@ -13,14 +17,20 @@ export default function MusicPage() {
         const response = await fetch("http://127.0.0.1:8000/query/sql", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: "SELECT id, track_name, track_artist, image_url FROM music LIMIT 50;" }),
+          body: JSON.stringify({
+            query: `
+            SELECT id, track_name, track_artist, image_url 
+            FROM music
+            WHERE path_download_wav <-> '${filepath}'
+            LIMIT 10;
+          ` }),
         });
 
         const result = await response.json();
         if (result.success) {
           setMusics(result.data);
         } else {
-          console.error("Error fetching musics:", result);
+          console.error("Error fetching related tracks by music file:", result);
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -30,12 +40,19 @@ export default function MusicPage() {
     }
 
     fetchMusics();
-  }, []);
+  }, [filepath]);
 
   return (
-    <div className="container mx-auto px-24 py-6 flex flex-col gap-y-8 select-none">
+    <div className="container mx-auto px-24 py-6 flex flex-col gap-y-8 select-none h-full">
       <div className="flex items-center gap-x-6">
-        <h2 className="text-2xl align-top">Canciones</h2>
+        <h2 className="text-2xl align-top">Musicas Relacionadas</h2>
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={() => setFileServer("")}
+        >
+          Limpiar
+        </Button>
       </div>
 
       {loading &&

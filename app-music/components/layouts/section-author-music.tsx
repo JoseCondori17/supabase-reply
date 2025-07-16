@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import Link from "next/link";
+import { LoaderCircle } from "lucide-react";
 
 function getRandomGradient() {
   const hue = Math.floor(Math.random() * 360);
@@ -31,7 +32,7 @@ export function SectionAuthorMusic() {
           setAuthor(result.data);
           setGradients(result.data.map(() => getRandomGradient()));
         } else {
-          console.error("Error fetching genres:", result);
+          console.error("Error fetching authors main:", result);
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -46,13 +47,17 @@ export function SectionAuthorMusic() {
   return (
     <div className="container mx-auto px-24 py-6 flex flex-col gap-y-8 select-none w-full">
       <div className="flex items-center gap-x-6">
-        <h2 className="text-2xl align-top">Author</h2>
+        <h2 className="text-2xl align-top">Artistas</h2>
         <Button size='sm' variant='outline' asChild>
-          <Link href={'/author'}>View all</Link>
+          <Link href={'/author'}>Ver más</Link>
         </Button>
       </div>
+      {loading &&
+        <div className="flex-1 flex items-center justify-center">
+          <LoaderCircle className="w-5 h-5 animate-spin text-gray-500" />
+        </div>
+      }
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {loading && <p>Loading...</p>}
         {!loading && author.slice(0,6).map((author, idx) => (
           <div className="flex flex-col items-center gap-y-3" key={idx}>
             <div

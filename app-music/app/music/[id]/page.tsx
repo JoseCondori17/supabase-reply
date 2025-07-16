@@ -1,46 +1,61 @@
-'use client';
-import { SectionDetailsMusic } from '@/components/layouts/section-details-music';
-import { SectionRelatedTracks } from '@/components/layouts/section-related-tracks';
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+'use client'
+import { SectionDetailsMusic } from '@/components/layouts/section-details-music'
+import { SectionRelatedTracks } from '@/components/layouts/section-related-tracks'
+import { LoaderCircle } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 export default function MusicSlugPage() {
-  const params = useParams();
-  const id = params.id;
+  const params = useParams()
+  const id = params.id
 
-  const [music, setMusics] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [music, setMusic] = useState<any | null>(null)
+  const [related, setRelated] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchMusics() {
+    async function fetchData() {
       try {
-        const response = await fetch("http://127.0.0.1:8000/query/sql", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: `SELECT id, track_name, track_artist, image_url FROM music WHERE id = ${id};` }),
-        });
+        const [mainRes, relatedRes] = await Promise.all([
+          fetch("http://127.0.0.1:8000/query/sql", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: `SELECT id, track_name, track_artist, path_download_wav, lyrics, image_url FROM music WHERE id = ${id};` }),
+          }),
+          fetch(`http://127.0.0.1:8000/query/top/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: "SELECT id, track_name, track_artist, image_url FROM music LIMIT 5;" }),
+          }),
+        ])
 
-        const result = await response.json();
-        if (result.success) {
-          setMusics(result.data);
-        } else {
-          console.error("Error fetching genres:", result);
-        }
+        const mainResult = await mainRes.json()
+        const relatedResult = await relatedRes.json()
+
+        if (mainResult.success) setMusic(mainResult.data[0])
+        if (relatedResult.success) setRelated(relatedResult.data)
       } catch (err) {
-        console.error("Fetch error:", err);
+        console.error("Error fetching data:", err)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
 
-    fetchMusics();
-  }, []);
+    fetchData()
+  }, [])
+
+  if (loading || !music) {
+    return (
+      <div className="h-full flex-1 flex items-center justify-center">
+        <LoaderCircle className="w-6 h-6 animate-spin text-gray-500" />
+      </div>
+    )
+  }
 
   return (
-    <div className='container mx-auto flex flex-col gap-y-4 py-6'>
-      <h1 className='text-2xl'>Music</h1>
-      <SectionDetailsMusic {...music[0]}/>
-      <SectionRelatedTracks id={music[0]?.id ?? 1}/>
+    <div className="container mx-auto flex flex-col gap-y-4 py-6">
+      <SectionDetailsMusic {...music} />
+      <SectionRelatedTracks items={related} />
     </div>
   )
 }
