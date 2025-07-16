@@ -1,10 +1,9 @@
 'use client'
-import { useState } from "react";
-import { useEffect } from "react";
-import { CardPreviewMusic } from "../common/card-preview";
 import { LoaderCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CardPreviewMusic } from "../common/card-preview";
 
-export function SectionSearchMusic({query} : {query: string}) {
+export function SectionSearchMusic({ query }: { query: string }) {
   const [music, setMusics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,9 +13,9 @@ export function SectionSearchMusic({query} : {query: string}) {
         const response = await fetch("http://127.0.0.1:8000/query/sql", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: `SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ ${query}` }),
+          body: JSON.stringify({ query: `SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ '${query}' LIMIT 10;` }),
         });
-
+        console.log(`SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ '${query}'`);
         const result = await response.json();
         if (result.success) {
           setMusics(result.data);

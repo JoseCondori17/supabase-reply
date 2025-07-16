@@ -29,7 +29,7 @@ export function SectionDetailsMusic({
       <div className="flex flex-col gap-y-2 items-start">
         <h1 className="font-bold text-4xl">{track_name}</h1>
         <span className="text-muted-foreground">by {track_artist}</span>
-        <PlayMusic src={`./audios_wav/${path_download_wav}`} />
+        <PlayMusic src={`${path_download_wav}`} />
       </div>
       <div className="w-full max-w-sm">
         <h2 className="text-md font-semibold mb-2 text-muted-foreground">Letra</h2>
