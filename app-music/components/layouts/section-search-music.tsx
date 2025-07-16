@@ -10,12 +10,15 @@ export function SectionSearchMusic({ query }: { query: string }) {
   useEffect(() => {
     async function fetchMusics() {
       try {
+        query = query.replaceAll(
+          /['"¿¡?!(){}[\]<>\\\/^%#@~*+=_|&:;,.`\u200B\uFEFF\n\r\tñáéíóúüçß]/gi,
+          "")
         const response = await fetch("http://127.0.0.1:8000/query/sql", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: `SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ '${query}' LIMIT 10;` }),
         });
-        console.log(`SELECT id, track_name, track_artist, image_url FROM music WHERE lyrics @@ '${query.replaceAll("'", "")}'`);
+        
         const result = await response.json();
         if (result.success) {
           setMusics(result.data);
